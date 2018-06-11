@@ -1,5 +1,15 @@
+#------------------------------------------------------------------------------
+# Exploratory Data Analysis
+# Joseph Feldhaus (ODFW) & Ryan Kinzer (NPT)
+# Date: 6/11/18     Modified: 6/11/18
+#------------------------------------------------------------------------------
+# The purpose of this script is to combine Chinook and Bull Trout detections within the Imnaha River basin into a single file.
+# The output file is processed with functions found in PITcleanr.  Noteably, assignNodes(truncate =T) to shorten the file size.
+# The output file is: PITcleanr_2018_chs_bull.rda which is also saved as an xlsx file for easier viewing.
+# At the very end of the script, some objects are removed from the R environment (e.g., removed chs_url, bull_obs_import)
+#------------------------------------------------------------------------------
+
 library(tidyverse)
-library(dplyr)
 library(lubridate)
 library(xlsx)
 library(PITcleanr)#devtools::install_github("KevinSee/PITcleanr", build_vignettes = TRUE)
@@ -17,82 +27,85 @@ chs_obs_import<-read.csv(basename(chs_url), skip = 0, colClasses="character",fil
 
 bull_url<-'ftp://ftp.ptagis.org/MicroStrategyExport/rkinzer/Imnaha_Bull_Complete_Tag_History.csv'#Bull trout file
 download.file(bull_url, basename(bull_url))
-bull_obs_raw<-read.csv(basename(bull_url), skip = 0, colClasses="character",fileEncoding = "UTF-16", sep = ",", header = TRUE)
+bull_obs_import<-read.csv(basename(bull_url), skip = 0, colClasses="character",fileEncoding = "UTF-16", sep = ",", header = TRUE)
 
-
-######
 
 ###Select the 7 key fields + a couple extra co-variates (mark site, mark file, mark species)
 chs_obs_raw<-chs_obs_import%>%select(Tag.Code,
                                      Mark.Rear.Type.Name,
-                                     Release.Site.Code.Value,
+                                     Release.Site.Code=Release.Site.Code.Value,
                                      Event.Date.Time.Value,
                                      Event.Site.Code.Value,
                                      Antenna.ID,
                                      Antenna.Group.Configuration.Value,
-                                     CTH.Count, Mark.File.Name, Mark.Species.Name)
-names(chs_obs_raw)
+                                     CTH.Count, 
+                                     Mark.File=Mark.File.Name,
+                                     Mark.Rear.Type=Mark.Rear.Type.Name,
+                                     Mark.Species=Mark.Species.Name)
 
-names(bull_obs_raw)
-
-bull_obs_raw2<-bull_obs_raw%>%rename(Tag.Code=Tag, 
+bull_obs_raw<-bull_obs_import%>%select(Tag.Code=Tag,
+                                     Mark.Rear.Type, 
+                                     Release.Site.Code, 
+                                     Event.Date.Time.Value=Event.Date.Time, 
+                                     Event.Site.Code.Value=Event.Site.Code,
                                      Antenna.ID=Antenna,
-                                     Event.Date.Time.Value=Event.Date.Time,
+                                     CTH.Count,
                                      Antenna.Group.Configuration.Value=Antenna.Group.Configuration,
-                                     Event.Site.Code.Value=Event.Site.Code)%>%
-  mutate(Release.Site.Code.Value="TBD",Mark.File.Name="TBD",Mark.Rear.Type.Name="Wild",Mark.Species.Name="Bull Trout")
-names(bull_obs_raw2)
+                                     Mark.File,
+                                     Mark.Rear.Type,
+                                     Mark.Species)
 
-###select column names in a consistent order
-bull_obs_raw3<-bull_obs_raw2%>%select(Tag.Code,
-                                      Mark.Rear.Type.Name,
-                                      Release.Site.Code.Value,
-                                      Event.Date.Time.Value,
-                                      Event.Site.Code.Value,
-                                      Antenna.ID,
-                                      Antenna.Group.Configuration.Value,
-                                      CTH.Count, Mark.File.Name, Mark.Species.Name)
-
-
-#The PTAGIS results have the word "value", but not the documentation.  Example: Event Date Time vs Event Date Time Value
-chs_bull_obs_raw<-rbind(chs_obs_raw,bull_obs_raw3)##Create the combined file
+#combine the Chinook and bull trout data into a single file
+chs_bull_obs_raw<-rbind(chs_obs_raw,bull_obs_raw)
 chs_bull_obs_raw$Antenna.Group.Configuration.Value<-as.numeric(chs_bull_obs_raw$Antenna.Group.Configuration.Value)#needs to be numeric
 
-###The functions seem to ignore/silently drop extra fields.  Append these at the end.
-ExtraData<-chs_bull_obs_raw%>%select(TagID=Tag.Code, Mark.Species.Name, Mark.Rear.Type.Name,Release.Site.Code.Value)%>%distinct()
+###The functions seem to ignore/silently drop extra fields.  Append/Merge these extra fields at the end.
+ExtraData<-chs_bull_obs_raw%>%select(TagID=Tag.Code, Mark.Species, Mark.Rear.Type,Release.Site.Code)%>%distinct()
 ExtraData$Origin<-"Unk"
-ExtraData$Origin[str_detect(ExtraData$Mark.Rear.Type.Name,"Hatchery")]<-"Hat"
-ExtraData$Origin[str_detect(ExtraData$Mark.Rear.Type.Name,"Wild")]<-"Nat"
-
-####These 3 steps do not require the PIT Tag observation data
-org_config<-buildConfig()#Compile metadata from all MRR and interogation sites from PTAGIS
-site_df<-writeLGRNodeNetwork()#
-parent_child <- createParentChildDf(site_df, org_config, startDate = 20180101)
+ExtraData$Origin[str_detect(ExtraData$Mark.Rear.Type,"Hatchery")]<-"Hat"
+ExtraData$Origin[str_detect(ExtraData$Mark.Rear.Type,"Wild")]<-"Nat"
 
 #####modify field names by replacing the "." with a space
 names(chs_bull_obs_raw) <- gsub("\\.", " ",names(chs_bull_obs_raw))#replace . with a space to be consistent with PITcleanr
-
 chs_bull_tags<-chs_bull_obs_raw%>%select(TagID=`Tag Code`)%>%distinct()%>%mutate(Tag=TagID,TrapDate=as.Date("2018-01-01"))
+
+####These 3 steps do not require the PIT Tag observation data, but are necessary to continue the script
+#load("C:/Rprojects/Imnaha_PITtracking/data/config_data_20180605.rda")
+my_config<-buildConfig()#Compile metadata from all MRR and interogation sites from PTAGIS
+site_df<-writeLGRNodeNetwork()#
+parent_child <- createParentChildDf(site_df, my_config, startDate = 20180101)
 
 valid_obs <- assignNodes(valid_tag_df = chs_bull_tags,
                          observation = chs_bull_obs_raw,
-                         configuration = org_config,
+                         configuration = my_config,
                          parent_child_df = parent_child,
                          truncate = T)
 
-valid_paths2<-getValidPaths(parent_child_df=parent_child,root_site=NULL)
-node_order<-createNodeOrder(valid_paths = valid_paths2, configuration =org_config, site_df = site_df,
-                            step_num = 3)
+valid_paths<-getValidPaths(parent_child_df=parent_child,root_site=NULL)
+node_order<-createNodeOrder(valid_paths = valid_paths, configuration =my_config, site_df = site_df, step_num = 3)
 
 proc_obs <- writeCapHistOutput(valid_obs,
-                               valid_paths2,
+                               valid_paths,
                                node_order,
                                save_file = FALSE)
 
-final_df<-full_join(proc_obs,ExtraData,by="TagID")%>%
-  select(TagID,Mark.Species.Name,Origin,Release.Site.Code.Value,everything())%>%droplevels()
+PITcleanr_2018_chs_bull<-full_join(proc_obs,ExtraData,by="TagID")%>%select(-TrapDate)%>%
+  select(TagID,Mark.Species,Origin,Mark.Rear.Type,Release.Site.Code,firstObsDateTime=ObsDate,lastObsDateTime=lastObsDate,everything())%>%droplevels()
 
+write.xlsx2(as.data.frame(PITcleanr_2018_chs_bull),"./data/PITcleanr_2018_chs_bull.xlsx",row.names=FALSE) 
+saveRDS(PITcleanr_2018_chs_bull,"./data/PITcleanr_2018_chs_bull.rds")
 
-write.xlsx2(as.data.frame(final_df),"//fweou/home/feldhaj/My Documents/MyRStuff/ImnahaPITs/Data/temp_2018_chs_bull_df.xlsx",row.names=FALSE) 
-saveRDS(final_df,"//fweou/home/feldhaj/My Documents/MyRStuff/ImnahaPITs/Data/testData.rds")
+###Clean the R-environment###
+###When the script is sourced, the following objects show up and clutter the workflow. These are remove with rm()
 
+rm(bull_url,
+   chs_url,
+   bull_obs_import,
+   bull_obs_raw,
+   chs_bull_obs_raw,
+   chs_bull_tags,
+   chs_obs_import,
+   chs_obs_raw,
+   ExtraData,
+   valid_obs,
+   proc_obs)
