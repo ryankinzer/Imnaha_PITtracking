@@ -1,0 +1,34 @@
+---
+title: "2018 Imnaha River Chinook Salmon and Bull Trout summaries"
+author: "Joseph Feldhaus (ODFW) & Ryan Kinzer (NPT)"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output: pdf_document
+editor_options: 
+  chunk_output_type: console
+---
+
+Imnaha Weir installation date: **XX June, 2018**.  
+
+###Source Data
+The complete PIT tag histories were downloaded from two differnt files on the [PTAGIS](https://www.ptagis.org) FTP server. Tag histories are limited to detections within the Imnaha Basin. File #1 = Chinook PIT tag detections (mainained by Joseph) and file #2 = Bull trout PIT tag detections (maintained by Ryan).  The data for these files is being refreshed daily at about 6:00 a.m. Pacific time on the PTAGIS server.  We are using an R-script to download these two files from the PTAGIS ftp server and combine them into a single file.  The output file is a simplified tag history with the first and last detection dates on each Node.  
+
+#####*Creating the PTAGIS Chinook Complete Tag History report:*  
+* *Tag list #1:* Static Tag list for all Chinook tagged in 2018 and released at BONAFF or LGRLDR.  
+* *Tag list #2:* Static Tag list for Chinook released into the Imnaha River for MY2015-2017 and detected at a mainstem adult ladder interrogatoin site in 2018.  
+* *Event Date:* Between 5/1/2018 and 10/1/2018
+* *Event Sites:* IR1, IR2, IR3, IR4, IR5, IML, IMNAHW, BSC, IMNAHR
+* *Mark Species:* Chinook
+* *Event Type:* Observation, Recapture, Recovery
+
+#####*Creating the PTAGIS Bull Trout Complete Tag History report:*  
+* *Tag list #1:* Static Tag list for ......  
+* *Event Date:* Between 1/1/2018 and 10/1/2018
+* *Event Sites:* IR1, IR2, IR3, IR4, IR5, IML, IMNAHW, COC, BSC
+* *Mark Species:* Bull Trout
+* *Event Type:* Observation, Recapture, Recovery
+```{r create chinook bull data, eval=FALSE, message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE}
+source("./R/02_load_chinook_bull_data.R")#Rules for determining Valid Tags and assigning Tag Fate
+```
+
+
+###In-season PIT tag array efficiency (post-year summary?)
