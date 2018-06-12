@@ -6,12 +6,12 @@ output: pdf_document
 editor_options: 
   chunk_output_type: console
 ---
-###Noteable Highlights/Data issues
+### Noteable Highlights/Data issues
 * Imnaha Weir installation date: **11 June, 2018**.   
-* 6/11/18: IR5 has not updated PTAGIS since 5/26.  Looking into the problem. IR4 & IML are working.
+* 6/11/18: IR5 has not been uploading to PTAGIS since 5/26.  Looking into the problem. IR4 & IML are working correctly.
 
 
-###Source Data
+### Source Data
 The complete PIT tag histories were downloaded from two differnt files on the [PTAGIS](https://www.ptagis.org) ftp server. Tag histories were limited to detections within the Imnaha River Basin. File #1 = Chinook PIT tag detections (mainained by Joseph) and file #2 = Bull trout PIT tag detections (maintained by Ryan).  The data for these files is being refreshed daily at about 6:00 a.m. Pacific time on the PTAGIS server.  We are using an R-script to download these two files from the PTAGIS ftp server and combine them into a single file.  The output file is a simplified tag history with the first and last detection dates on each Node.  
 
 #####*Creating the PTAGIS Chinook Complete Tag History report:*  
@@ -25,74 +25,131 @@ The complete PIT tag histories were downloaded from two differnt files on the [P
 #####*Creating the PTAGIS Bull Trout Complete Tag History report:*  
 * *Tag list #1:* Static Tag list for ......  
 * *Event Date:* Between 1/1/2018 and 10/1/2018
-* *Event Sites:* IR1, IR2, IR3, IR4, IR5, IML, IMNAHW, COC, BSC
+* *Event Sites:* IR1, IR2, IR3, IR4, IR5, IML, IMNAHW, COC, BSC, IMNAHR
 * *Mark Species:* Bull Trout
 * *Event Type:* Observation, Recapture, Recovery  
 
-##Note to Ryan.  I have the code chunk that creates the PTAGIS files set to "don't run".  For draft writing, it's faster.
-```{r create chinook bull data, eval=FALSE, message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE}
-source("./R/02_load_chinook_bull_data.R")#Rules for determining Valid Tags and assigning Tag Fate
+```{r setup, echo = FALSE, include = FALSE}
+library(knitr)
+library(pander)
+library(tidyverse)
+library(lubridate)
+library(scales)
+library(PITcleanr)
+
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE, error = TRUE)
+
+panderOptions('round',2)
 ```
 
 
-###In-season PIT tag array efficiency
-
-```{r Array Efficiency, echo=TRUE, message=FALSE, warning=FALSE}
-library(tidyverse)
-library(lubridate)
-library(PITcleanr)
+```{r load_data}
+# Un-comment out the source code to update the data
+#source("./R/02_load_chinook_bull_data.R")
 
 df<-readRDS("./data/PITcleanr_2018_chs_bull.rds")
 load("./data/config_data_20180605.rda")
 
-#Ryan's function for array efficiency
-df2<-df%>%filter(!Node%in%c("COCA0","COCB0","BSCA0","BSCB0"))
-Ryan_bull_e<-nodeEfficiency(subset(df2,Mark.Species=="Bull Trout"),direction="Upstream")
-Ryan_bull_e
+```
 
-chinook_e<-nodeEfficiency(subset(df2,Mark.Species=="Chinook"),direction="Upstream")
-chinook_e
 
-###Kevin's function for array efficiency
-proc_ch<-df%>%filter(Mark.Species=="Chinook")
-##Kevin's efficiency calcs don't work unless you assign the name "proc_ch" even though proc_obs is the exact same file
-kevin_chk<-estNodeEff(capHist_proc=proc_ch,node_order=node_order,node=c("IR1","IR2","IR3","IR4","IR5"))
-kevin_chk
+### Unique PIT-tag observations and detection efficiency
 
-proc_ch<-df%>%filter(Mark.Species=="Bull Trout")#replace the proc_ch object
-kevin_bt<-estNodeEff(capHist_proc=proc_ch,node_order=node_order,node=c("IR1","IR2","IR3","IR4","IR5"))
-kevin_bt
+```{r efficiency}
+df %>%
+  filter(!Node%in%c("COCA0","COCB0","BSCA0","BSCB0", "IMNAHR")) %>%
+  mutate(Obs_location = ifelse(grepl("IR", Node), "Instream", "Ladder-Trap")) %>%
+  group_by(Mark.Species, Obs_location) %>%
+  do(nodeEfficiency(.,direction="Upstream")) %>%
+  arrange(Mark.Species, NodeOrder) %>%
+  mutate(det_eff = ifelse(Node != 'IMNAHW', Recaps/Marks, 1.00),
+         se_eff = (1/Marks^2)*(Marks*det_eff)*(1-det_eff),
+         N_tags = Unique_tags/det_eff,
+         se_N = sqrt(((Marks+1)*(Unique_tags+1)*(Marks - Recaps) * (Unique_tags - Recaps))/ ((Recaps+1)^2 * (Recaps+2))),
+         lwr_N = N_tags - 1.96*se_N,
+         upr_N = N_tags + 1.96*se_N,
+         N_up = lag(N_tags),
+         Conversion = N_tags/N_up) %>%
+  ungroup() %>%
+  select(-Obs_location, -NodeOrder, -se_eff, -se_N, -lwr_N, -upr_N, -N_up) %>%
+  pander()
+```
 
+```{r kevins_eff}
+
+# the do call doesn't work, to make this section function correctly we
+# need to split out the datasets by species and bind together
+proc_ch <- df %>%
+  filter(Mark.Species == "Bull Trout")
+
+bull_eff <- proc_ch %>%
+  filter(!Node%in%c("COCA0","COCB0","BSCA0","BSCB0", "IMNAHR")) %>%
+  do(estNodeEff(., node_order=node_order, node=c("IR1","IR2","IR3B0","IR3A0","IR4B0","IR4A0","IR5B0","IR5A0"))) 
+
+proc_ch <- df %>%
+  filter(Mark.Species == "Chinook")
+
+ch_eff <- proc_ch %>%
+  filter(!Node%in%c("COCA0","COCB0","BSCA0","BSCB0", "IMNAHR")) %>%
+  do(estNodeEff(., node_order=node_order, node=c("IR1","IR2","IR3B0","IR3A0","IR4B0","IR4A0","IR5B0","IR5A0"))) 
+bind_rows(bull_eff, ch_eff) %>%
+  pander()
 ```
 
 ###Unique Tag counts
-```{r Unique Tag counts, echo=FALSE, message=FALSE, warning=FALSE}
-library(tidyverse)
-library(lubridate)
+```{r Unique Tag counts}
 
-df<-readRDS("./data/PITcleanr_2018_chs_bull.rds")
-load("C:/Rprojects/Imnaha_PITtracking/data/config_data_20180605.rda")
-MinMaxDate<-df%>%filter(!SiteID%in%c("BSC","COC"))%>%
-  group_by(TagID,Mark.Species,Origin,Release.Site.Code,SiteID)%>%
-  summarise(MinDate=min(date(firstObsDateTime)),MaxDate=max(date(lastObsDateTime)),DaysDif=yday(MaxDate)-yday(MinDate))
-#View(MinMaxDate)
-#length(unique(MinMaxDate$Tag.Code))
-graph1_df<-MinMaxDate%>%group_by(SiteID,Mark.Species,Origin,MinDate)%>%tally()
-
-ggplot(graph1_df,aes(x=MinDate,y=n,fill=Origin))+geom_bar(stat="identity")+
-  facet_grid(factor(SiteID,levels=c("IR1","IR2","IR3","IR4","IML","IR5"))~Mark.Species,scales="free_y")+theme_bw()+
-  theme_bw()+theme(panel.grid.major=element_blank())+
-  ggtitle("Figure X. Counts of unique PIT tags")+labs(x="First detection date",y="Count")
-
-#
-MinDateTable<-MinMaxDate%>%select(-MaxDate,-DaysDif)%>%spread(SiteID,MinDate)%>%arrange(Mark.Species,Origin)#Minimum time
-
-#theme(panel.grid.major=element_blank(),panel.grid.minor=element_blank())
+df %>%
+  filter(!SiteID%in%c("BSC","COC")) %>%
+  group_by(TagID, Mark.Species, Origin, Release.Site.Code, SiteID) %>%
+  slice(which.min(lastObsDateTime)) %>%
+  ggplot(aes(x=lastObsDateTime, fill=Origin)) +
+  geom_histogram(bins = 100) +
+  facet_grid(factor(SiteID,levels=c("IR1","IR2","IR3","IR4","IML","IR5"))~Mark.Species,scales="free_y") +
+  theme_bw() +
+  theme(panel.grid.major=element_blank())+
+  labs(x = "First detection date",
+       y = "Count",
+       title = "Figure X. Counts of unique PIT tags")
 ```
 
-##Travel Time (IR1/2 to IR3)
+```{r detect_hist, eval = FALSE}
+df %>%
+  filter(!SiteID %in% c('COC', 'BSC')) %>%
+  select(TagID, Mark.Species, Origin, lastObsDateTime, SiteID) %>%
+  mutate(SiteID = factor(SiteID,levels=c("IR1","IR2","IR3","IR4","IML","IR5"))) %>%
+  group_by(TagID, SiteID) %>%
+  slice(which.min(lastObsDateTime)) %>%
+  spread(SiteID, lastObsDateTime) %>%
+  pander()
+```
+
+## Travel time between sites.
 
 ```{r Travel Time}
-##Just a placeholder for a graph/table to show travel times from point A to point B.  
+# number of days to travel from one site to the next
+# tmp <- df %>%
+#   filter(!SiteID %in% c('COC','BSC')) %>%
+#   group_by(Mark.Species, Origin, SiteID, TagID) %>%
+#   slice(which.min(lastObsDateTime))
 ```
 
+
+## Number of days spent at a site.
+```{r days_site}
+# number of days at a site
+df %>%
+  filter(!SiteID %in% c('COC','BSC')) %>%
+  group_by(Mark.Species, Origin, SiteID, TagID) %>%
+  summarise(minObsDate = min(lastObsDateTime),
+          maxObsDate = max(lastObsDateTime),
+          hours = difftime(maxObsDate, minObsDate, units = 'days')) %>%
+  ggplot(aes(x = hours, fill = Origin)) +
+  geom_histogram(colour = 'black', alpha = .5) +
+  scale_fill_brewer(palette = 'Set1') +
+  facet_grid(SiteID ~ Mark.Species, scales = 'free') +
+  theme_bw() +
+  theme(legend.position = 'bottom') +
+  labs(x = 'Days (max(obsDate) - min(obsDate))',
+       y = 'Count') 
+```
