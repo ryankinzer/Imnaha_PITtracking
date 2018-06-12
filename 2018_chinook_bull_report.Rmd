@@ -6,11 +6,13 @@ output: pdf_document
 editor_options: 
   chunk_output_type: console
 ---
+###Noteable Highlights/Data issues
+* Imnaha Weir installation date: **11 June, 2018**.   
+* 6/11/18: IR5 has not updated PTAGIS since 5/26.  Looking into the problem. IR4 & IML are working.
 
-Imnaha Weir installation date: **XX June, 2018**.  
 
 ###Source Data
-The complete PIT tag histories were downloaded from two differnt files on the [PTAGIS](https://www.ptagis.org) FTP server. Tag histories are limited to detections within the Imnaha Basin. File #1 = Chinook PIT tag detections (mainained by Joseph) and file #2 = Bull trout PIT tag detections (maintained by Ryan).  The data for these files is being refreshed daily at about 6:00 a.m. Pacific time on the PTAGIS server.  We are using an R-script to download these two files from the PTAGIS ftp server and combine them into a single file.  The output file is a simplified tag history with the first and last detection dates on each Node.  
+The complete PIT tag histories were downloaded from two differnt files on the [PTAGIS](https://www.ptagis.org) ftp server. Tag histories were limited to detections within the Imnaha River Basin. File #1 = Chinook PIT tag detections (mainained by Joseph) and file #2 = Bull trout PIT tag detections (maintained by Ryan).  The data for these files is being refreshed daily at about 6:00 a.m. Pacific time on the PTAGIS server.  We are using an R-script to download these two files from the PTAGIS ftp server and combine them into a single file.  The output file is a simplified tag history with the first and last detection dates on each Node.  
 
 #####*Creating the PTAGIS Chinook Complete Tag History report:*  
 * *Tag list #1:* Static Tag list for all Chinook tagged in 2018 and released at BONAFF or LGRLDR.  
@@ -25,10 +27,72 @@ The complete PIT tag histories were downloaded from two differnt files on the [P
 * *Event Date:* Between 1/1/2018 and 10/1/2018
 * *Event Sites:* IR1, IR2, IR3, IR4, IR5, IML, IMNAHW, COC, BSC
 * *Mark Species:* Bull Trout
-* *Event Type:* Observation, Recapture, Recovery
+* *Event Type:* Observation, Recapture, Recovery  
+
+##Note to Ryan.  I have the code chunk that creates the PTAGIS files set to "don't run".  For draft writing, it's faster.
 ```{r create chinook bull data, eval=FALSE, message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE}
 source("./R/02_load_chinook_bull_data.R")#Rules for determining Valid Tags and assigning Tag Fate
 ```
 
 
-###In-season PIT tag array efficiency (post-year summary?)
+###In-season PIT tag array efficiency
+
+```{r Array Efficiency, echo=TRUE, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(lubridate)
+library(PITcleanr)
+
+df<-readRDS("./data/PITcleanr_2018_chs_bull.rds")
+load("./data/config_data_20180605.rda")
+
+#Ryan's function for array efficiency
+df2<-df%>%filter(!Node%in%c("COCA0","COCB0","BSCA0","BSCB0"))
+Ryan_bull_e<-nodeEfficiency(subset(df2,Mark.Species=="Bull Trout"),direction="Upstream")
+Ryan_bull_e
+
+chinook_e<-nodeEfficiency(subset(df2,Mark.Species=="Chinook"),direction="Upstream")
+chinook_e
+
+###Kevin's function for array efficiency
+proc_ch<-df%>%filter(Mark.Species=="Chinook")
+##Kevin's efficiency calcs don't work unless you assign the name "proc_ch" even though proc_obs is the exact same file
+kevin_chk<-estNodeEff(capHist_proc=proc_ch,node_order=node_order,node=c("IR1","IR2","IR3","IR4","IR5"))
+kevin_chk
+
+proc_ch<-df%>%filter(Mark.Species=="Bull Trout")#replace the proc_ch object
+kevin_bt<-estNodeEff(capHist_proc=proc_ch,node_order=node_order,node=c("IR1","IR2","IR3","IR4","IR5"))
+kevin_bt
+
+```
+
+###Unique Tag counts
+```{r Unique Tag counts, echo=FALSE, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(lubridate)
+
+df<-readRDS("./data/PITcleanr_2018_chs_bull.rds")
+load("C:/Rprojects/Imnaha_PITtracking/data/config_data_20180605.rda")
+MinMaxDate<-df%>%filter(!SiteID%in%c("BSC","COC"))%>%
+  group_by(TagID,Mark.Species,Origin,Release.Site.Code,SiteID)%>%
+  summarise(MinDate=min(date(firstObsDateTime)),MaxDate=max(date(lastObsDateTime)),DaysDif=yday(MaxDate)-yday(MinDate))
+#View(MinMaxDate)
+#length(unique(MinMaxDate$Tag.Code))
+graph1_df<-MinMaxDate%>%group_by(SiteID,Mark.Species,Origin,MinDate)%>%tally()
+
+ggplot(graph1_df,aes(x=MinDate,y=n,fill=Origin))+geom_bar(stat="identity")+
+  facet_grid(factor(SiteID,levels=c("IR1","IR2","IR3","IR4","IML","IR5"))~Mark.Species,scales="free_y")+theme_bw()+
+  theme_bw()+theme(panel.grid.major=element_blank())+
+  ggtitle("Figure X. Counts of unique PIT tags")+labs(x="First detection date",y="Count")
+
+#
+MinDateTable<-MinMaxDate%>%select(-MaxDate,-DaysDif)%>%spread(SiteID,MinDate)%>%arrange(Mark.Species,Origin)#Minimum time
+
+#theme(panel.grid.major=element_blank(),panel.grid.minor=element_blank())
+```
+
+##Travel Time (IR1/2 to IR3)
+
+```{r Travel Time}
+##Just a placeholder for a graph/table to show travel times from point A to point B.  
+```
+
