@@ -75,7 +75,7 @@ df %>%
   pander()
 ```
 
-```{r kevins_eff}
+```{r kevins_eff, eval = FALSE}
 
 # the do call doesn't work, to make this section function correctly we
 # need to split out the datasets by species and bind together
@@ -96,6 +96,30 @@ bind_rows(bull_eff, ch_eff) %>%
   pander()
 ```
 
+
+```{r detect_hist, eval = FALSE}
+detect_hist <- df %>%
+  filter(!SiteID %in% c('COC', 'BSC')) %>%
+  select(TagID, Mark.Species, Origin, lastObsDateTime, SiteID) %>%
+  mutate(SiteID = factor(SiteID,levels=c("IR1","IR2","IR3","IR4","IML","IR5"))) %>%
+  group_by(TagID, SiteID) %>%
+  slice(which.min(lastObsDateTime)) %>%
+  spread(SiteID, lastObsDateTime)
+
+df$UserProcStatus <- df$AutoProcStatus
+
+df2 <- df %>%
+  rename(ObsDate = firstObsDateTime, lastObsDate = lastObsDateTime) %>%
+  estimateSpawnLoc()
+
+```
+
+```{r}
+
+
+```
+
+
 ###Unique Tag counts
 ```{r Unique Tag counts}
 
@@ -113,16 +137,7 @@ df %>%
        title = "Figure X. Counts of unique PIT tags")
 ```
 
-```{r detect_hist, eval = FALSE}
-df %>%
-  filter(!SiteID %in% c('COC', 'BSC')) %>%
-  select(TagID, Mark.Species, Origin, lastObsDateTime, SiteID) %>%
-  mutate(SiteID = factor(SiteID,levels=c("IR1","IR2","IR3","IR4","IML","IR5"))) %>%
-  group_by(TagID, SiteID) %>%
-  slice(which.min(lastObsDateTime)) %>%
-  spread(SiteID, lastObsDateTime) %>%
-  pander()
-```
+
 
 ## Travel time between sites.
 
@@ -140,6 +155,7 @@ df %>%
 # number of days at a site
 df %>%
   filter(!SiteID %in% c('COC','BSC')) %>%
+  mutate(SiteID = factor(SiteID,levels=c("IR1","IR2","IR3","IR4","IML","IR5"))) %>%
   group_by(Mark.Species, Origin, SiteID, TagID) %>%
   summarise(minObsDate = min(lastObsDateTime),
           maxObsDate = max(lastObsDateTime),
