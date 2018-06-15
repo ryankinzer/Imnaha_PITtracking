@@ -17,8 +17,6 @@ editor_options:
     + The cause of the downtime was attributed to a faulty master controller.
 
 
- 
-
 ```{r setup, echo = FALSE, include = FALSE}
 library(knitr)
 library(pander)
@@ -26,6 +24,7 @@ library(tidyverse)
 library(lubridate)
 library(scales)
 library(PITcleanr)
+library(xlsx)
 
 knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE, error = TRUE)
 
@@ -42,7 +41,7 @@ load("./data/config_data_20180605.rda")
 
 ```
 
-### Unique PIT-tag observations by species
+### Unique PIT-tag observations within the Imnaha Basin by species
 ```{r }
 df %>%
   group_by(Mark.Species, Origin) %>%
@@ -50,8 +49,7 @@ df %>%
   pander()
 ```
 
-
-### Unique PIT-tag observations by speices, origin and release site
+### Unique PIT-tag observations within the Imnaha Basin by obervation site, species, origin and release site
 ```{r }
 df %>%
   mutate(Release.Year = year(Release.Date)) %>%
@@ -60,20 +58,34 @@ df %>%
   pander()
 ```
 
-### Unique PIT-tag observations by species, origin and arrival date
+
+
+### Unique PIT-tag observations within the Imnaha Basin by species, SiteID and origin
+```{r }
+df %>%
+  mutate(Release.Year = year(Release.Date)) %>%
+  group_by(Mark.Species,SiteID,Origin) %>%
+  summarise(Unique_Tags = n_distinct(TagID)) %>%
+  pander()
+```
+
+
+### Unique PIT-tag observations within the Imnaha Basin by species, origin and arrival date
 
 Do we want to truncate the dates for Bull trout observations?
 
-```{r Unique Tag counts}
+```{r Unique Tag counts, fig.width=8,fig.height=7,message=FALSE, warning=FALSE}
 
 df %>%
   filter(!SiteID%in%c("BSC","COC")) %>%
   group_by(TagID, Mark.Species, Origin, Release.Site.Code, SiteID) %>%
   slice(which.min(lastObsDateTime)) %>%
   ggplot(aes(x=lastObsDateTime, fill=Origin)) +
-  geom_histogram(bins = 100) +
-  facet_grid(factor(SiteID,levels=c("IR1","IR2","IR3","IR4","IML","IR5"))~Mark.Species,scales="free_y") +
+  geom_histogram(colour = 'black', alpha = .5, bins = 100) +
+  facet_grid(factor(SiteID,levels=c("IR1","IR2","IR3","IR4","IML","IR5"))~Mark.Species,scales="free") +
+  scale_fill_brewer(palette = 'Set1') +
   theme_bw() +
+  theme(legend.position = 'bottom') +
   theme(panel.grid.major=element_blank())+
   labs(x = "First detection date",
        y = "Count")
@@ -106,7 +118,8 @@ tmp_df %>%
 ```
 
 
-```{r detect_hist}
+```{r detect_hist, echo=FALSE, message=FALSE, warning=FALSE}
+#might need to consider fish going dowsntream
 detect_hist <- df %>%
   filter(!SiteID %in% c('COC', 'BSC')) %>%
   select(TagID, Mark.Species, Origin, lastObsDateTime, SiteID) %>%
@@ -118,21 +131,44 @@ detect_hist <- df %>%
             mutate(UserProcStatus = AutoProcStatus) %>%
             rename(ObsDate = firstObsDateTime, lastObsDate = lastObsDateTime) %>%
             estimateSpawnLoc(), by = 'TagID') %>%
-  mutate(TagFate = ifelse(AssignSpawnSite=="IR4" & LastObs <= ymd(20180611), "Passed Prior Weir",
+  mutate(TagStatus = ifelse(AssignSpawnSite=="IR4" & LastObs <= ymd(20180611), "Assumed Passed Weir prior to 6/11/18",
                           ifelse(grepl("IR5", TagPath), "Successfully Passed",
                                 ifelse(grepl("IMNAHW", TagPath) & grepl("IR4", TagPath), "Successfully Trapped",
-                                   ifelse(grepl("IML", TagPath) & grepl("IR4", TagPath), "Attemptting Ladder",
+                                   ifelse(grepl("IML", TagPath) & grepl("IR4", TagPath), "Attempting Ladder",
                                       ifelse(grepl("IR4", TagPath), "At Weir",paste0("Last Seen at ",AssignSpawnSite))))))) 
+
+####
+write.xlsx2(as.data.frame(detect_hist),"./data/detect_hist.xlsx",row.names=FALSE) 
+wb <- loadWorkbook("./data/detect_hist.xlsx")
+sheets <- getSheets(wb)
+# autosize column widths
+autoSizeColumn(sheets[[1]], colIndex=1:ncol(df))
+saveWorkbook(wb,"./data/detect_hist.xlsx")
   #select(TagID, Mark.Species, Origin, LastObs, AssignSpawnSite, AssignSpawnNode, TagPath, IR1:IR5)
+
 ```
 
 
-### Unique PIT-tag observations by fate
+### Unique PIT-tag observations by tag status
 ```{r}
 detect_hist %>%
-  group_by(Mark.Species, Origin, TagFate) %>%
+  group_by(Mark.Species, Origin, TagStatus) %>%
   summarise(Unique_Tags = n()) %>%
   pander()
+
+##filter for detections at IR4, IR5, IML, IMNAHW
+AtWeir<-detect_hist%>%filter(str_detect(TagPath,"IR3|IR4|IR5|IML|IMNAHW"))
+ggplot(AtWeir,aes(x=as.Date(LastObs,"%m/%d/%Y",tz="UTC"),fill=TagStatus))+
+  geom_histogram(colour = 'black', alpha = .5, binwidth=1)+
+  facet_grid(.~Mark.Species,scales="free")+
+  scale_fill_brewer(palette = 'Set1') +
+  theme_bw() +
+  theme(legend.position = 'bottom') +
+  theme(panel.grid.major=element_blank())+
+  ggtitle("Tag status for detections upstream of IR3")+
+  labs(x = "Last Observation Date at IR3/IR4/IML/IR5/IMNAHW",
+       y = "Count")
+
 ```
 
 
