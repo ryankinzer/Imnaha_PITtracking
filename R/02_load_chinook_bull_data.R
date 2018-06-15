@@ -97,10 +97,25 @@ PITcleanr_2018_chs_bull <- right_join(ExtraData, proc_obs, ExtraData, by="TagID"
          everything()) %>%
   droplevels()
 
-
 write.xlsx2(as.data.frame(PITcleanr_2018_chs_bull),"./data/PITcleanr_2018_chs_bull.xlsx",row.names=FALSE) 
 
 saveRDS(PITcleanr_2018_chs_bull,"./data/PITcleanr_2018_chs_bull.rds")
+
+source('./R/aws_keys.R')
+
+setKeys()
+
+aws.s3::s3write_using(PITcleanr_2018_chs_bull, FUN = write.csv,
+              bucket = "nptfisheries-pittracking",
+              object = "PITcleanr_2018_chs_bull")
+
+aws.s3::s3write_using(bull_obs_import, FUN = write.csv,
+                      bucket = "nptfisheries-pittracking",
+                      object = "Imnaha_Bull_Complete_Tag_History")
+
+aws.s3::s3write_using(chs_obs_import, FUN = write.csv,
+                      bucket = "nptfisheries-pittracking",
+                      object = "2018_Imnaha_CompleteTagHistory")
 
 # Clean the R-environment
 rm(list = ls())

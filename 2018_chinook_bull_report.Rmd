@@ -7,27 +7,17 @@ editor_options:
   chunk_output_type: console
 ---
 ### Noteable Highlights/Data issues
-* Imnaha Weir installation date: **11 June, 2018**.   
-* 6/11/18: IR5 has not been uploading to PTAGIS since 5/26.  Looking into the problem. IR4 & IML are working correctly.
+* Imnaha Weir installation date: **11 June, 2018**.
+    + A staff injury on June 11th precluded the ladder from being watered to allow fish passage.
+    + The ladder was potentially watered either Tuesday the 12th or Wednesday the 13th. **(check with weir staff)**
+  
+* On June 11th, 2018 we discoved that IR5 had not been uploading tag detections to PTAGIS since 5/26. Joseph contacted BioMark staff to help diagnose and fix the problem.  All other tag detection sites were working correctly (e.g. IR4 & IML).
+    + Last tag detected before IR5 went offline was on May 25th at 3:14 a.m.
+    + IR5 was brought back online on June 13th and almost immediately started detecting Bull trout tags at 1:10 p.m.
+    + The cause of the downtime was attributed to a faulty master controller.
 
 
-### Source Data
-The complete PIT tag histories were downloaded from two differnt files on the [PTAGIS](https://www.ptagis.org) ftp server. Tag histories were limited to detections within the Imnaha River Basin. File #1 = Chinook PIT tag detections (mainained by Joseph) and file #2 = Bull trout PIT tag detections (maintained by Ryan).  The data for these files is being refreshed daily at about 6:00 a.m. Pacific time on the PTAGIS server.  We are using an R-script to download these two files from the PTAGIS ftp server and combine them into a single file.  The output file is a simplified tag history with the first and last detection dates on each Node.  
-
-#####*Creating the PTAGIS Chinook Complete Tag History report:*  
-* *Tag list #1:* Static Tag list for all Chinook tagged in 2018 and released at BONAFF or LGRLDR.  
-* *Tag list #2:* Static Tag list for Chinook released into the Imnaha River for MY2015-2017 and detected at a mainstem adult ladder interrogatoin site in 2018.  
-* *Event Date:* Between 5/1/2018 and 10/1/2018
-* *Event Sites:* IR1, IR2, IR3, IR4, IR5, IML, IMNAHW, BSC, IMNAHR
-* *Mark Species:* Chinook
-* *Event Type:* Observation, Recapture, Recovery
-
-#####*Creating the PTAGIS Bull Trout Complete Tag History report:*  
-* *Tag list #1:* Static Tag list for ......  
-* *Event Date:* Between 1/1/2018 and 10/1/2018
-* *Event Sites:* IR1, IR2, IR3, IR4, IR5, IML, IMNAHW, COC, BSC, IMNAHR
-* *Mark Species:* Bull Trout
-* *Event Type:* Observation, Recapture, Recovery  
+ 
 
 ```{r setup, echo = FALSE, include = FALSE}
 library(knitr)
@@ -52,51 +42,28 @@ load("./data/config_data_20180605.rda")
 
 ```
 
-
-### Unique PIT-tag observations and detection efficiency
-
-```{r efficiency}
+### Unique PIT-tag observations by species
+```{r }
 df %>%
-  filter(!Node%in%c("COCA0","COCB0","BSCA0","BSCB0", "IMNAHR")) %>%
-  mutate(Obs_location = ifelse(grepl("IR", Node), "Instream", "Ladder-Trap")) %>%
-  group_by(Mark.Species, Obs_location) %>%
-  do(nodeEfficiency(.,direction="Upstream")) %>%
-  arrange(Mark.Species, NodeOrder) %>%
-  mutate(det_eff = ifelse(Node != 'IMNAHW', Recaps/Marks, 1.00),
-         se_eff = (1/Marks^2)*(Marks*det_eff)*(1-det_eff),
-         N_tags = Unique_tags/det_eff,
-         se_N = sqrt(((Marks+1)*(Unique_tags+1)*(Marks - Recaps) * (Unique_tags - Recaps))/ ((Recaps+1)^2 * (Recaps+2))),
-         lwr_N = N_tags - 1.96*se_N,
-         upr_N = N_tags + 1.96*se_N,
-         N_up = lag(N_tags),
-         Conversion = N_tags/N_up) %>%
-  ungroup() %>%
-  select(-Obs_location, -NodeOrder, -se_eff, -se_N, -lwr_N, -upr_N, -N_up) %>%
+  group_by(Mark.Species, Origin) %>%
+  summarise(Unique_Tags = n_distinct(TagID)) %>%
   pander()
 ```
 
-```{r kevins_eff}
 
-# the do call doesn't work, to make this section function correctly we
-# need to split out the datasets by species and bind together
-proc_ch <- df %>%
-  filter(Mark.Species == "Bull Trout")
-
-bull_eff <- proc_ch %>%
-  filter(!Node%in%c("COCA0","COCB0","BSCA0","BSCB0", "IMNAHR")) %>%
-  do(estNodeEff(., node_order=node_order, node=c("IR1","IR2","IR3B0","IR3A0","IR4B0","IR4A0","IR5B0","IR5A0"))) 
-
-proc_ch <- df %>%
-  filter(Mark.Species == "Chinook")
-
-ch_eff <- proc_ch %>%
-  filter(!Node%in%c("COCA0","COCB0","BSCA0","BSCB0", "IMNAHR")) %>%
-  do(estNodeEff(., node_order=node_order, node=c("IR1","IR2","IR3B0","IR3A0","IR4B0","IR4A0","IR5B0","IR5A0"))) 
-bind_rows(bull_eff, ch_eff) %>%
+### Unique PIT-tag observations by speices, origin and release site
+```{r }
+df %>%
+  mutate(Release.Year = year(Release.Date)) %>%
+  group_by(Mark.Species, Origin, Release.Site.Code) %>%
+  summarise(Unique_Tags = n_distinct(TagID)) %>%
   pander()
 ```
 
-###Unique Tag counts
+### Unique PIT-tag observations by species, origin and arrival date
+
+Do we want to truncate the dates for Bull trout observations?
+
 ```{r Unique Tag counts}
 
 df %>%
@@ -109,47 +76,124 @@ df %>%
   theme_bw() +
   theme(panel.grid.major=element_blank())+
   labs(x = "First detection date",
-       y = "Count",
-       title = "Figure X. Counts of unique PIT tags")
+       y = "Count")
 ```
 
-```{r detect_hist, eval = FALSE}
-df %>%
+### Unique PIT-tag observations by site, detection efficiencies and estimated tags
+
+```{r efficiency}
+tmp_df <- df %>%
+  mutate(Node = gsub("A0", "B0", Node))  # calculates efficiency at the site level
+
+tmp_df %>%
+  filter(!Node%in%c("COCA0","COCB0","BSCA0","BSCB0", "IMNAHR")) %>%
+  mutate(Obs_location = ifelse(grepl("IR", Node), "Instream", "Ladder-Trap")) %>%
+  group_by(Mark.Species, Obs_location) %>%
+  do(nodeEfficiency(.,direction="Upstream")) %>%
+  arrange(Mark.Species, NodeOrder) %>%
+  mutate(det_eff = ifelse(Node != 'IMNAHW', Recaps/Marks, 1.00),
+         se_eff = (1/Marks^2)*(Marks*det_eff)*(1-det_eff),
+         N_tags = Unique_tags/det_eff,
+         se_N = sqrt(((Marks+1)*(Unique_tags+1)*(Marks - Recaps) * (Unique_tags - Recaps))/ ((Recaps+1)^2 * (Recaps+2))),
+         lwr_N = N_tags - 1.96*se_N,
+         upr_N = N_tags + 1.96*se_N,
+         N_up = lag(N_tags),
+         Conversion = paste0(round(N_tags/N_up*100),"%"),
+         Node = gsub("B0", "", Node)) %>%
+  ungroup() %>%
+  select(Mark.Species, SiteID = Node, Unique_Tags = Unique_tags, det_eff, N_tags, lwr_N, upr_N, Conversion) %>%
+  pander()
+```
+
+
+```{r detect_hist}
+detect_hist <- df %>%
   filter(!SiteID %in% c('COC', 'BSC')) %>%
   select(TagID, Mark.Species, Origin, lastObsDateTime, SiteID) %>%
   mutate(SiteID = factor(SiteID,levels=c("IR1","IR2","IR3","IR4","IML","IR5"))) %>%
   group_by(TagID, SiteID) %>%
   slice(which.min(lastObsDateTime)) %>%
   spread(SiteID, lastObsDateTime) %>%
+  left_join(df %>%
+            mutate(UserProcStatus = AutoProcStatus) %>%
+            rename(ObsDate = firstObsDateTime, lastObsDate = lastObsDateTime) %>%
+            estimateSpawnLoc(), by = 'TagID') %>%
+  mutate(TagFate = ifelse(AssignSpawnSite=="IR4" & LastObs <= ymd(20180611), "Passed Prior Weir",
+                          ifelse(grepl("IR5", TagPath), "Successfully Passed",
+                                ifelse(grepl("IMNAHW", TagPath) & grepl("IR4", TagPath), "Successfully Trapped",
+                                   ifelse(grepl("IML", TagPath) & grepl("IR4", TagPath), "Attemptting Ladder",
+                                      ifelse(grepl("IR4", TagPath), "At Weir",paste0("Last Seen at ",AssignSpawnSite))))))) 
+  #select(TagID, Mark.Species, Origin, LastObs, AssignSpawnSite, AssignSpawnNode, TagPath, IR1:IR5)
+```
+
+
+### Unique PIT-tag observations by fate
+```{r}
+detect_hist %>%
+  group_by(Mark.Species, Origin, TagFate) %>%
+  summarise(Unique_Tags = n()) %>%
   pander()
 ```
 
-## Travel time between sites.
+
+## Travel time between sites
 
 ```{r Travel Time}
-# number of days to travel from one site to the next
-# tmp <- df %>%
-#   filter(!SiteID %in% c('COC','BSC')) %>%
-#   group_by(Mark.Species, Origin, SiteID, TagID) %>%
-#   slice(which.min(lastObsDateTime))
+detect_hist %>%
+  mutate(IR1_IR2 = difftime(IR2, IR1, units = 'days'),
+         IR2_IR3 = difftime(IR3, IR2, units = 'days'),
+         IR3_IR4 = difftime(IR4, IR3, units = 'days'),
+         IR4_IR5 = difftime(IR5, IR4, units = 'days')) %>%
+  select(TagID, Mark.Species, Origin, IR1_IR2:IR4_IR5) %>%
+  mutate_at(c(4:7), as.numeric) %>%
+  gather(Reach, Travel_Time, IR1_IR2:IR4_IR5) %>%
+  filter(Travel_Time >= 0) %>%
+  ggplot(aes(x = Travel_Time, fill = Origin)) +
+  geom_histogram(colour = 'black', alpha = .5, bins = 20) +
+  scale_fill_brewer(palette = 'Set1') +
+  facet_grid(Reach ~ Mark.Species) +
+  theme_bw() +
+  theme(legend.position = 'bottom') +
+  labs(x = 'Travel Time (Days)',
+       y = 'Count') 
 ```
 
 
-## Number of days spent at a site.
+## Number of days spent at a site
 ```{r days_site}
 # number of days at a site
 df %>%
   filter(!SiteID %in% c('COC','BSC')) %>%
+  mutate(SiteID = factor(SiteID,levels=c("IR1","IR2","IR3","IR4","IML","IR5"))) %>%
   group_by(Mark.Species, Origin, SiteID, TagID) %>%
   summarise(minObsDate = min(lastObsDateTime),
           maxObsDate = max(lastObsDateTime),
           hours = difftime(maxObsDate, minObsDate, units = 'days')) %>%
   ggplot(aes(x = hours, fill = Origin)) +
-  geom_histogram(colour = 'black', alpha = .5) +
+  geom_histogram(colour = 'black', alpha = .5, bins = 20) +
   scale_fill_brewer(palette = 'Set1') +
-  facet_grid(SiteID ~ Mark.Species, scales = 'free') +
+  facet_grid(SiteID ~ Mark.Species) +
   theme_bw() +
   theme(legend.position = 'bottom') +
   labs(x = 'Days (max(obsDate) - min(obsDate))',
        y = 'Count') 
 ```
+
+
+### Source Data
+The complete PIT-tag histories for Chinook Salmon and Bull trout detected during 2018 in the Imnaha River Basin were downloaded as two seperate files located on the [PTAGIS ftp server](ftp://ftp.ptagis.org/MicroStrategyExport/). The files are the result of running "Complete Tag History" queries that were parameterized on the [PTAGIS website](https://www.ptagis.org/) and set-up to run and save automatically at 6:00 a.m. each day.  The first file contains Chinook Salmon PIT-tag detections and is stored at the "*feldhauh/2018_Imnaha_CompleteTagHistory.csv*" file path within the ftp server.  The second file contains Bull trout detections and is stored within the "*rkinzer/Imnaha_Bull_Complete_Tag_History.csv*" filepath.  We are then using an R-script to download the files from the PTAGIS ftp server and combine them into a single file.  Once the file is combined all Chinook Salmon and Bull trout tag detections are processed using the R package [PITcleanR](https://github.com/kevinsee/PITcleanR). The final dataset provides a simplified tag history with the first and last detection dates at each PIT-tag detection node (i.e., a single spanning array or antenna) and information regarding upstream and downstream movements and a more general migration direction.   
+
+#####*Creating the PTAGIS Chinook Complete Tag History report:*  
+* *Tag list #1:* Static Tag list for all Chinook tagged in 2018 and released at BONAFF or LGRLDR.  
+* *Tag list #2:* Static Tag list for Chinook released into the Imnaha River for MY2015-2017 and detected at a mainstem adult ladder interrogatoin site in 2018.  
+* *Event Date:* Between 5/1/2018 and 10/1/2018
+* *Event Sites:* IR1, IR2, IR3, IR4, IR5, IML, IMNAHW, BSC, IMNAHR
+* *Mark Species:* Chinook
+* *Event Type:* Observation, Recapture, Recovery
+
+#####*Creating the PTAGIS Bull Trout Complete Tag History report:*  
+* *Query:* All PIT-tagged Bull trout detected in the Imnaha River Basin in 2018.   
+* *Event Date:* Between 1/1/2018 and 10/1/2018
+* *Event Sites:* IR1, IR2, IR3, IR4, IR5, IML, IMNAHW, COC, BSC, IMNAHR
+* *Mark Species:* Bull Trout
+* *Event Type:* Observation, Recapture, Recovery 
