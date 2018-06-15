@@ -97,9 +97,16 @@ PITcleanr_2018_chs_bull <- right_join(ExtraData, proc_obs, ExtraData, by="TagID"
          everything()) %>%
   droplevels()
 
-write.xlsx2(as.data.frame(PITcleanr_2018_chs_bull),"./data/PITcleanr_2018_chs_bull.xlsx",row.names=FALSE) 
-
 saveRDS(PITcleanr_2018_chs_bull,"./data/PITcleanr_2018_chs_bull.rds")
+
+#Write xlsx file and auto fit the column widths
+write.xlsx2(as.data.frame(PITcleanr_2018_chs_bull),"./data/PITcleanr_2018_chs_bull.xlsx",row.names=FALSE)
+wb <- loadWorkbook("./data/PITcleanr_2018_chs_bull.xlsx")
+sheets <- getSheets(wb)
+# autosize column widths
+autoSizeColumn(sheets[[1]], colIndex=1:ncol(df))
+saveWorkbook(wb,"./data/PITcleanr_2018_chs_bull.xlsx")
+
 
 source('./R/aws_keys.R')
 
