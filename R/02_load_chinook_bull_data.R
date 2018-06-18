@@ -95,16 +95,17 @@ PITcleanr_2018_chs_bull <- right_join(ExtraData, proc_obs, ExtraData, by="TagID"
   select(TagID, Mark.Species, Origin, Release.Site.Code,
          firstObsDateTime = ObsDate, lastObsDateTime = lastObsDate,
          everything()) %>%
-  droplevels()
+         droplevels()
 
 saveRDS(PITcleanr_2018_chs_bull,"./data/PITcleanr_2018_chs_bull.rds")
 
 #Write xlsx file and auto fit the column widths
+#https://stackoverflow.com/questions/27322110/define-excels-column-width-with-r
 write.xlsx2(as.data.frame(PITcleanr_2018_chs_bull),"./data/PITcleanr_2018_chs_bull.xlsx",row.names=FALSE)
 wb <- loadWorkbook("./data/PITcleanr_2018_chs_bull.xlsx")
 sheets <- getSheets(wb)
 # autosize column widths
-autoSizeColumn(sheets[[1]], colIndex=1:ncol(df))
+autoSizeColumn(sheets[[1]], colIndex=1:ncol(PITcleanr_2018_chs_bull))#reference number of columns in original excel file
 saveWorkbook(wb,"./data/PITcleanr_2018_chs_bull.xlsx")
 
 
