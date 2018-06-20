@@ -107,6 +107,10 @@ tmp_df %>%
 
 
 ```{r detect_hist}
+# this should be part of the load file and read-in!!!!!!!!
+# We should add a field for TrapStatus - will help for summarization and grouping later
+# need another field for passage route - use TagPath for ifelse (if IR5 was it IMNAHW = Handled); (if IR5 was it IML = Ladder Attempt ); if (IR5 was it IR4 = No Ladder Attempt)
+# might need to consider fish going downstream
 detect_hist <- df %>%
   filter(!SiteID %in% c('COC', 'BSC')) %>%
   select(TagID, Mark.Species, Origin, lastObsDateTime, SiteID) %>%
@@ -118,7 +122,7 @@ detect_hist <- df %>%
             mutate(UserProcStatus = AutoProcStatus) %>%
             rename(ObsDate = firstObsDateTime, lastObsDate = lastObsDateTime) %>%
             estimateSpawnLoc(), by = 'TagID') %>%
-  mutate(TagFate = ifelse(AssignSpawnSite=="IR4" & LastObs <= ymd(20180611), "Passed Prior Weir",
+  mutate(TagStatus = ifelse(AssignSpawnSite=="IR4" & LastObs <= ymd(20180611), "Assummed Passed Prior Weir",
                           ifelse(grepl("IR5", TagPath), "Successfully Passed",
                                 ifelse(grepl("IMNAHW", TagPath) & grepl("IR4", TagPath), "Successfully Trapped",
                                    ifelse(grepl("IML", TagPath) & grepl("IR4", TagPath), "Attemptting Ladder",
@@ -140,7 +144,7 @@ detect_hist %>%
 
 ```{r Travel Time}
 detect_hist %>%
-  mutate(IR1_IR2 = difftime(IR2, IR1, units = 'days'),
+  mutate(IR1_IR2 = difftime(IR2, IR1, units = 'days'),  # move up to detect_hist
          IR2_IR3 = difftime(IR3, IR2, units = 'days'),
          IR3_IR4 = difftime(IR4, IR3, units = 'days'),
          IR4_IR5 = difftime(IR5, IR4, units = 'days')) %>%
