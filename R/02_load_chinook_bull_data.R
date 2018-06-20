@@ -89,18 +89,64 @@ proc_obs <- writeCapHistOutput(valid_obs,
                                node_order,
                                save_file = FALSE)
 
-# join covariate data with processed capture histories
+# join covariate data with processed capture histories & remove columns
+#Keep AutoProcStatus
 PITcleanr_2018_chs_bull <- right_join(ExtraData, proc_obs, ExtraData, by="TagID") %>%
-  select(-TrapDate) %>%
+  select(-TrapDate, -UserProcStatus, -ModelObs,-UserComment) %>%
   select(TagID, Mark.Species, Origin, Release.Site.Code,
          firstObsDateTime = ObsDate, lastObsDateTime = lastObsDate,
          everything()) %>%
-  droplevels()
-
-write.xlsx2(as.data.frame(PITcleanr_2018_chs_bull),"./data/PITcleanr_2018_chs_bull.xlsx",row.names=FALSE) 
+         droplevels()
 
 saveRDS(PITcleanr_2018_chs_bull,"./data/PITcleanr_2018_chs_bull.rds")
 
+#Write xlsx file and auto fit the column widths
+#https://stackoverflow.com/questions/27322110/define-excels-column-width-with-r
+PITcleanr_2018_chs_bull2<-PITcleanr_2018_chs_bull%>%select(-AutoProcStatus)
+write.xlsx2(as.data.frame(PITcleanr_2018_chs_bull2),"./data/PITcleanr_2018_chs_bull.xlsx",row.names=FALSE)
+wb <- loadWorkbook("./data/PITcleanr_2018_chs_bull.xlsx")
+sheets <- getSheets(wb)
+# autosize column widths
+autoSizeColumn(sheets[[1]], colIndex=1:ncol(PITcleanr_2018_chs_bull))#reference number of columns in original excel file
+saveWorkbook(wb,"./data/PITcleanr_2018_chs_bull.xlsx")
+
+
+####Create the detection history##########
+##This step seems to want the AutoProcStatus from the Original PITcleanr file
+
+# this should be part of the load file and read-in!!!!!!!!
+# We should add a field for TrapStatus - will help for summarization and grouping later
+# need another field for passage route - use TagPath for ifelse (if IR5 was it IMNAHW = Handled); (if IR5 was it IML = Ladder Attempt ); if (IR5 was it IR4 = No Ladder Attempt)
+# might need to consider fish going downstream
+
+detect_hist <- PITcleanr_2018_chs_bull %>%
+  filter(!SiteID %in% c('COC', 'BSC')) %>%
+  select(TagID, Mark.Species, Origin, lastObsDateTime, SiteID) %>%
+  mutate(SiteID = factor(SiteID,levels=c("IR1","IR2","IR3","IR4","IML","IR5"))) %>%
+  group_by(TagID, SiteID) %>%
+  slice(which.min(lastObsDateTime)) %>%
+  spread(SiteID, lastObsDateTime) %>%
+  left_join(PITcleanr_2018_chs_bull %>%
+              mutate(UserProcStatus = AutoProcStatus) %>%
+              rename(ObsDate = firstObsDateTime, lastObsDate = lastObsDateTime) %>%
+              estimateSpawnLoc(), by = 'TagID') %>%
+  mutate(TagStatus = ifelse(AssignSpawnSite=="IR4" & LastObs <= ymd(20180611), "Assumed Passed Weir prior to 6/11/18",
+                            ifelse(grepl("IR5", TagPath), "Successfully Passed",
+                                   ifelse(grepl("IMNAHW", TagPath) & grepl("IR4", TagPath), "Successfully Trapped",
+                                          ifelse(grepl("IML", TagPath) & grepl("IR4", TagPath), "Attempting Ladder",
+                                                 ifelse(grepl("IR4", TagPath), "At Weir",paste0("Last Seen at ",AssignSpawnSite))))))) 
+
+saveRDS(detect_hist,"./data/detect_hist.rds")#Save as RDS
+
+write.xlsx2(as.data.frame(detect_hist),"./data/detect_hist.xlsx",row.names=FALSE) 
+wb2 <- loadWorkbook("./data/detect_hist.xlsx")
+sheets2 <- getSheets(wb2)
+autoSizeColumn(sheets2[[1]], colIndex=1:ncol(detect_hist))# autosize column widths
+saveWorkbook(wb2,"./data/detect_hist.xlsx")
+saveRDS(detect_hist,"./data/detect_hist.rds")
+
+
+##Amazon and Shiny####
 source('./R/aws_keys.R')
 
 setKeys()

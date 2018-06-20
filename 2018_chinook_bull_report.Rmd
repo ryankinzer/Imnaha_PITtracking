@@ -17,8 +17,6 @@ editor_options:
     + The cause of the downtime was attributed to a faulty master controller.
 
 
- 
-
 ```{r setup, echo = FALSE, include = FALSE}
 library(knitr)
 library(pander)
@@ -26,6 +24,7 @@ library(tidyverse)
 library(lubridate)
 library(scales)
 library(PITcleanr)
+library(xlsx)
 
 knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE, error = TRUE)
 
@@ -38,11 +37,12 @@ panderOptions('round',2)
 #source("./R/02_load_chinook_bull_data.R")
 
 df<-readRDS("./data/PITcleanr_2018_chs_bull.rds")
+detect_hist<-readRDS("./data/detect_hist.rds")
 load("./data/config_data_20180605.rda")
 
 ```
 
-### Unique PIT-tag observations by species
+### Unique PIT-tag observations within the Imnaha Basin by species
 ```{r }
 df %>%
   group_by(Mark.Species, Origin) %>%
@@ -50,8 +50,7 @@ df %>%
   pander()
 ```
 
-
-### Unique PIT-tag observations by speices, origin and release site
+### Unique PIT-tag observations within the Imnaha Basin by obervation site, species, origin and release site
 ```{r }
 df %>%
   mutate(Release.Year = year(Release.Date)) %>%
@@ -60,20 +59,34 @@ df %>%
   pander()
 ```
 
-### Unique PIT-tag observations by species, origin and arrival date
+
+
+### Unique PIT-tag observations within the Imnaha Basin by species, SiteID and origin
+```{r }
+df %>%
+  mutate(Release.Year = year(Release.Date)) %>%
+  group_by(Mark.Species,SiteID,Origin) %>%
+  summarise(Unique_Tags = n_distinct(TagID)) %>%
+  pander()
+```
+
+
+### Unique PIT-tag observations within the Imnaha Basin by species, origin and arrival date
 
 Do we want to truncate the dates for Bull trout observations?
 
-```{r Unique Tag counts}
+```{r Unique Tag counts, fig.width=8,fig.height=7,message=FALSE, warning=FALSE}
 
 df %>%
   filter(!SiteID%in%c("BSC","COC")) %>%
   group_by(TagID, Mark.Species, Origin, Release.Site.Code, SiteID) %>%
   slice(which.min(lastObsDateTime)) %>%
   ggplot(aes(x=lastObsDateTime, fill=Origin)) +
-  geom_histogram(bins = 100) +
-  facet_grid(factor(SiteID,levels=c("IR1","IR2","IR3","IR4","IML","IR5"))~Mark.Species,scales="free_y") +
+  geom_histogram(colour = 'black', alpha = .5, bins = 100) +
+  facet_grid(factor(SiteID,levels=c("IR1","IR2","IR3","IR4","IML","IR5"))~Mark.Species,scales="free") +
+  scale_fill_brewer(palette = 'Set1') +
   theme_bw() +
+  theme(legend.position = 'bottom') +
   theme(panel.grid.major=element_blank())+
   labs(x = "First detection date",
        y = "Count")
@@ -105,38 +118,30 @@ tmp_df %>%
   pander()
 ```
 
-
-```{r detect_hist}
-# this should be part of the load file and read-in!!!!!!!!
-# We should add a field for TrapStatus - will help for summarization and grouping later
-# need another field for passage route - use TagPath for ifelse (if IR5 was it IMNAHW = Handled); (if IR5 was it IML = Ladder Attempt ); if (IR5 was it IR4 = No Ladder Attempt)
-# might need to consider fish going downstream
-detect_hist <- df %>%
-  filter(!SiteID %in% c('COC', 'BSC')) %>%
-  select(TagID, Mark.Species, Origin, lastObsDateTime, SiteID) %>%
-  mutate(SiteID = factor(SiteID,levels=c("IR1","IR2","IR3","IR4","IML","IR5"))) %>%
-  group_by(TagID, SiteID) %>%
-  slice(which.min(lastObsDateTime)) %>%
-  spread(SiteID, lastObsDateTime) %>%
-  left_join(df %>%
-            mutate(UserProcStatus = AutoProcStatus) %>%
-            rename(ObsDate = firstObsDateTime, lastObsDate = lastObsDateTime) %>%
-            estimateSpawnLoc(), by = 'TagID') %>%
-  mutate(TagStatus = ifelse(AssignSpawnSite=="IR4" & LastObs <= ymd(20180611), "Assummed Passed Prior Weir",
-                          ifelse(grepl("IR5", TagPath), "Successfully Passed",
-                                ifelse(grepl("IMNAHW", TagPath) & grepl("IR4", TagPath), "Successfully Trapped",
-                                   ifelse(grepl("IML", TagPath) & grepl("IR4", TagPath), "Attemptting Ladder",
-                                      ifelse(grepl("IR4", TagPath), "At Weir",paste0("Last Seen at ",AssignSpawnSite))))))) 
-  #select(TagID, Mark.Species, Origin, LastObs, AssignSpawnSite, AssignSpawnNode, TagPath, IR1:IR5)
-```
-
-
-### Unique PIT-tag observations by fate
+### Unique PIT-tag observations by tag status
 ```{r}
 detect_hist %>%
-  group_by(Mark.Species, Origin, TagFate) %>%
+  group_by(Mark.Species, Origin, TagStatus) %>%
   summarise(Unique_Tags = n()) %>%
   pander()
+
+##filter for detections at IR4, IR5, IML, IMNAHW
+AtWeir<-detect_hist%>%filter(str_detect(TagPath,"IR4|IR5|IML|IMNAHW"))%>%
+  mutate(LastObsDate=as.Date(LastObs,format="%m/%d/%Y"))
+
+ggplot(subset(AtWeir,LastObsDate>"2018/05/31"),aes(x=as.Date(LastObs,"%m/%d/%Y",tz="UTC"),fill=TagStatus))+
+  geom_histogram(colour = 'black', alpha = .5, binwidth=1)+
+  geom_vline(xintercept = as.numeric(as.Date("2018-06-11")), linetype=2)+
+  facet_wrap(~Mark.Species,scales="free_y",ncol=1)+
+  scale_fill_brewer(palette = 'Set1') +
+  theme_bw() +
+  theme(legend.position = 'bottom')+ 
+  guides(fill=guide_legend(nrow=2,byrow=TRUE))+
+  theme(panel.grid.major=element_blank())+
+  ggtitle("Tag status: last detection at IR4/IR5/IML/IMNAHW after 5/31/18")+
+  labs(x = "Last Observation Date",
+       y = "Count")
+
 ```
 
 
@@ -163,7 +168,7 @@ detect_hist %>%
 ```
 
 
-## Number of days spent at a site
+### Number of days spent at a site
 ```{r days_site}
 # number of days at a site
 df %>%
@@ -185,7 +190,7 @@ df %>%
 
 
 ### Source Data
-The complete PIT-tag histories for Chinook Salmon and Bull trout detected during 2018 in the Imnaha River Basin were downloaded as two seperate files located on the [PTAGIS ftp server](ftp://ftp.ptagis.org/MicroStrategyExport/). The files are the result of running "Complete Tag History" queries that were parameterized on the [PTAGIS website](https://www.ptagis.org/) and set-up to run and save automatically at 6:00 a.m. each day.  The first file contains Chinook Salmon PIT-tag detections and is stored at the "*feldhauh/2018_Imnaha_CompleteTagHistory.csv*" file path within the ftp server.  The second file contains Bull trout detections and is stored within the "*rkinzer/Imnaha_Bull_Complete_Tag_History.csv*" filepath.  We are then using an R-script to download the files from the PTAGIS ftp server and combine them into a single file.  Once the file is combined all Chinook Salmon and Bull trout tag detections are processed using the R package [PITcleanR](https://github.com/kevinsee/PITcleanR). The final dataset provides a simplified tag history with the first and last detection dates at each PIT-tag detection node (i.e., a single spanning array or antenna) and information regarding upstream and downstream movements and a more general migration direction.   
+The complete PIT-tag histories for Chinook Salmon and Bull trout detected during 2018 in the Imnaha River Basin were downloaded as two seperate files located on the [PTAGIS ftp server](ftp://ftp.ptagis.org/MicroStrategyExport/). The files are the result of running "Complete Tag History" queries that were parameterized on the [PTAGIS website](https://www.ptagis.org/) and set-up to run and save automatically at 6:00 a.m. each day.  The first file contains Chinook Salmon PIT-tag detections and is stored at the "*feldhauj/2018_Imnaha_CompleteTagHistory.csv*" file path within the ftp server.  The second file contains Bull trout detections and is stored within the "*rkinzer/Imnaha_Bull_Complete_Tag_History.csv*" filepath.  We are then using an R-script to download the files from the PTAGIS ftp server and combine them into a single file.  Once the file is combined all Chinook Salmon and Bull trout tag detections are processed using the R package [PITcleanR](https://github.com/kevinsee/PITcleanR). The final dataset provides a simplified tag history with the first and last detection dates at each PIT-tag detection node (i.e., a single spanning array or antenna) and information regarding upstream and downstream movements and a more general migration direction.   
 
 #####*Creating the PTAGIS Chinook Complete Tag History report:*  
 * *Tag list #1:* Static Tag list for all Chinook tagged in 2018 and released at BONAFF or LGRLDR.  
@@ -201,3 +206,11 @@ The complete PIT-tag histories for Chinook Salmon and Bull trout detected during
 * *Event Sites:* IR1, IR2, IR3, IR4, IR5, IML, IMNAHW, COC, BSC, IMNAHR
 * *Mark Species:* Bull Trout
 * *Event Type:* Observation, Recapture, Recovery 
+<<<<<<< HEAD
+=======
+
+
+#####*Output Files:*  
+* *PITcleanr_2018_chs_bull.xlsx*:  The complete tag histories from 2018_Imnaha_ComploeteTagHistory.csv and Imnanha_Bull_Complete_Tag_Histories.csv combined into a single file and processed with the PITcleanr R-package.  
+* *detect_hist.xlsx*: A pivot table style summary.  Each row = a unique PIT tag code.  Columns correspond to first detection dates at IR1-IR5, IML, and IMNAHW.  The LastObs date is the last obsevation date/time in the complete tag history file.  This file contains the Trap Status, TagPath, Passage Route, and TagStatus fields.  Trap status references the dates the weir was opeating (ryan, want to expand). TagPath is a character string representing detections at PIT tag observations sites.  TagStatus represents the last known location of the tag and whether the tag has arrived at the weir, has attempted the ladder (i.e., detected at IML), passed the weir (i.e., detected at IR5), or has been trapped (i.e., detected at IMNAHW). The tag pathway describes the passage route through the weir.
+>>>>>>> fdeb415199e591197587aca16f45d9078a0511a5
