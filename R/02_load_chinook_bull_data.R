@@ -29,6 +29,10 @@ download.file(bull_url, paste0("./data/", basename(bull_url)))
 bull_obs_import <- read.csv(paste0("./data/", basename(bull_url)), skip = 0, colClasses="character",
                             fileEncoding = "UTF-16", sep = ",", header = TRUE)
 
+# Trap Install Date
+
+install_date <- ymd_hm("2018/06/11 15:00") # we could add time and second if we wanted
+
 # Create full dataset
 chs_bull_obs_raw <- bind_rows(chs_obs_import %>%
                                 select(Tag.Code,
@@ -92,7 +96,7 @@ proc_obs <- writeCapHistOutput(valid_obs,
 # join covariate data with processed capture histories & remove columns
 #Keep AutoProcStatus
 PITcleanr_2018_chs_bull <- right_join(ExtraData, proc_obs, ExtraData, by="TagID") %>%
-  select(-TrapDate, -UserProcStatus, -ModelObs,-UserComment) %>%
+  select(-TrapDate, -UserProcStatus,-ValidPath, -ModelObs,-UserComment) %>%
   select(TagID, Mark.Species, Origin, Release.Site.Code,
          firstObsDateTime = ObsDate, lastObsDateTime = lastObsDate,
          everything()) %>%
@@ -103,6 +107,7 @@ saveRDS(PITcleanr_2018_chs_bull,"./data/PITcleanr_2018_chs_bull.rds")
 #Write xlsx file and auto fit the column widths
 #https://stackoverflow.com/questions/27322110/define-excels-column-width-with-r
 PITcleanr_2018_chs_bull2<-PITcleanr_2018_chs_bull%>%select(-AutoProcStatus)
+
 write.xlsx2(as.data.frame(PITcleanr_2018_chs_bull2),"./data/PITcleanr_2018_chs_bull.xlsx",row.names=FALSE)
 wb <- loadWorkbook("./data/PITcleanr_2018_chs_bull.xlsx")
 sheets <- getSheets(wb)
@@ -121,27 +126,41 @@ saveWorkbook(wb,"./data/PITcleanr_2018_chs_bull.xlsx")
 
 detect_hist <- PITcleanr_2018_chs_bull %>%
   filter(!SiteID %in% c('COC', 'BSC')) %>%
-  select(TagID, Mark.Species, Origin, lastObsDateTime, SiteID) %>%
-  mutate(SiteID = factor(SiteID,levels=c("IR1","IR2","IR3","IR4","IML","IR5"))) %>%
+  select(TagID, Mark.Species, Origin, firstObsDateTime, SiteID, Release.Date) %>%
+  mutate(SiteID = factor(SiteID,levels=c("IR1","IR2","IR3","IR4","IML","IMNAHW","IR5"))) %>%
   group_by(TagID, SiteID) %>%
-  slice(which.min(lastObsDateTime)) %>%
-  spread(SiteID, lastObsDateTime) %>%
+  slice(which.min(firstObsDateTime)) %>%
+  spread(SiteID, firstObsDateTime) %>%
   left_join(PITcleanr_2018_chs_bull %>%
               mutate(UserProcStatus = AutoProcStatus) %>%
               rename(ObsDate = firstObsDateTime, lastObsDate = lastObsDateTime) %>%
               estimateSpawnLoc(), by = 'TagID') %>%
-  mutate(TagStatus = ifelse(AssignSpawnSite=="IR4" & LastObs <= ymd(20180611), "Assumed Passed Weir prior to 6/11/18",
-                            ifelse(grepl("IR5", TagPath), "Successfully Passed",
-                                   ifelse(grepl("IMNAHW", TagPath) & grepl("IR4", TagPath), "Successfully Trapped",
+  mutate(IR1_IR2 = difftime(IR2, IR1, units = 'days'),
+         IR2_IR3 = difftime(IR3, IR2, units = 'days'),
+         IR3_IR4 = difftime(IR4, IR3, units = 'days'),
+         IR4_IR5 = difftime(IR5, IR4, units = 'days')) %>%
+  mutate(TaggedIn2018= ifelse(Mark.Species=="Bull Trout"&Release.Date>ymd(20180611),"NewTag","Recap"))%>%
+  mutate(TagStatus = ifelse(AssignSpawnSite=="IR4" & LastObs <= ymd(20180611), "Passed: <11 June",
+                            ifelse(grepl("IR5", TagPath), "Passed",
+                                   ifelse(grepl("IMNAHW", TagPath) & grepl("IR4", TagPath), "Trapped",
                                           ifelse(grepl("IML", TagPath) & grepl("IR4", TagPath), "Attempting Ladder",
-                                                 ifelse(grepl("IR4", TagPath), "At Weir",paste0("Last Seen at ",AssignSpawnSite))))))) 
+                                                 ifelse(grepl("IR4", TagPath), "At Weir",paste0("Last obs: ",AssignSpawnSite)))))),
+         TrapStatus = ifelse(IR4 <= install_date, "Panels Open",
+                             ifelse(IR4 > install_date, "Panels Closed", NA)),
+         PassageRoute = ifelse(TagStatus != "Passed", NA,
+                               ifelse(grepl("IMNAHW", TagPath), "Handled",
+                                      ifelse(grepl("IML", TagPath), "Passed Panels - Ladder Attempt",
+                                             ifelse(grepl("IR4", TagPath), "Passed Panels - No Ladder Attemp", NA))))) 
 
-saveRDS(detect_hist,"./data/detect_hist.rds")#Save as RDS
+#Rearange variable names
+detect_hist_out<-detect_hist%>%select(TagID,Mark.Species,Origin,TaggedIn2018,TagStatus,Release.Date,everything())
 
-write.xlsx2(as.data.frame(detect_hist),"./data/detect_hist.xlsx",row.names=FALSE) 
+saveRDS(detect_hist_out,"./data/detect_hist.rds")#Save as RDS
+write.xlsx2(as.data.frame(detect_hist_out),"./data/detect_hist.xlsx",row.names=FALSE) 
 wb2 <- loadWorkbook("./data/detect_hist.xlsx")
 sheets2 <- getSheets(wb2)
-autoSizeColumn(sheets2[[1]], colIndex=1:ncol(detect_hist))# autosize column widths
+#autoSizeColumn(sheets2[[1]], colIndex=1:ncol(detect_hist))# autosize column widths
+setColumnWidth(sheets2[[1]],colIndex=1:ncol(detect_hist_out),colWidth=18)
 saveWorkbook(wb2,"./data/detect_hist.xlsx")
 saveRDS(detect_hist,"./data/detect_hist.rds")
 
@@ -154,6 +173,10 @@ setKeys()
 aws.s3::s3write_using(PITcleanr_2018_chs_bull, FUN = write.csv,
               bucket = "nptfisheries-pittracking",
               object = "PITcleanr_2018_chs_bull")
+
+aws.s3::s3write_using(detect_hist, FUN = write.csv,
+                      bucket = "nptfisheries-pittracking",
+                      object = "detection_history_2018")
 
 aws.s3::s3write_using(bull_obs_import, FUN = write.csv,
                       bucket = "nptfisheries-pittracking",

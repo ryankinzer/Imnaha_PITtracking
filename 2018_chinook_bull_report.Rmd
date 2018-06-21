@@ -149,14 +149,11 @@ ggplot(subset(AtWeir,LastObsDate>"2018/05/31"),aes(x=as.Date(LastObs,"%m/%d/%Y",
 
 ```{r Travel Time}
 detect_hist %>%
-  mutate(IR1_IR2 = difftime(IR2, IR1, units = 'days'),  # move up to detect_hist
-         IR2_IR3 = difftime(IR3, IR2, units = 'days'),
-         IR3_IR4 = difftime(IR4, IR3, units = 'days'),
-         IR4_IR5 = difftime(IR5, IR4, units = 'days')) %>%
   select(TagID, Mark.Species, Origin, IR1_IR2:IR4_IR5) %>%
   mutate_at(c(4:7), as.numeric) %>%
   gather(Reach, Travel_Time, IR1_IR2:IR4_IR5) %>%
   filter(Travel_Time >= 0) %>%
+  filter(Reach == "IR4_IR5") %>%
   ggplot(aes(x = Travel_Time, fill = Origin)) +
   geom_histogram(colour = 'black', alpha = .5, bins = 20) +
   scale_fill_brewer(palette = 'Set1') +
@@ -206,11 +203,8 @@ The complete PIT-tag histories for Chinook Salmon and Bull trout detected during
 * *Event Sites:* IR1, IR2, IR3, IR4, IR5, IML, IMNAHW, COC, BSC, IMNAHR
 * *Mark Species:* Bull Trout
 * *Event Type:* Observation, Recapture, Recovery 
-<<<<<<< HEAD
-=======
 
 
 #####*Output Files:*  
 * *PITcleanr_2018_chs_bull.xlsx*:  The complete tag histories from 2018_Imnaha_ComploeteTagHistory.csv and Imnanha_Bull_Complete_Tag_Histories.csv combined into a single file and processed with the PITcleanr R-package.  
 * *detect_hist.xlsx*: A pivot table style summary.  Each row = a unique PIT tag code.  Columns correspond to first detection dates at IR1-IR5, IML, and IMNAHW.  The LastObs date is the last obsevation date/time in the complete tag history file.  This file contains the Trap Status, TagPath, Passage Route, and TagStatus fields.  Trap status references the dates the weir was opeating (ryan, want to expand). TagPath is a character string representing detections at PIT tag observations sites.  TagStatus represents the last known location of the tag and whether the tag has arrived at the weir, has attempted the ladder (i.e., detected at IML), passed the weir (i.e., detected at IR5), or has been trapped (i.e., detected at IMNAHW). The tag pathway describes the passage route through the weir.
->>>>>>> fdeb415199e591197587aca16f45d9078a0511a5
