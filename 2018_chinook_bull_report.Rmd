@@ -73,23 +73,42 @@ df %>%
 
 ### Unique PIT-tag observations within the Imnaha Basin by species, origin and arrival date
 
-Do we want to truncate the dates for Bull trout observations?
-
-```{r Unique Tag counts, fig.width=8,fig.height=7,message=FALSE, warning=FALSE}
+```{r Unique Tag counts, fig.width=8,fig.height=10,message=FALSE, warning=FALSE}
 
 df %>%
-  filter(!SiteID%in%c("BSC","COC")) %>%
+  #filter(!SiteID%in%c("BSC","COC")) %>%
   group_by(TagID, Mark.Species, Origin, Release.Site.Code, SiteID) %>%
-  slice(which.min(lastObsDateTime)) %>%
+   slice(which.min(lastObsDateTime)) %>%
   ggplot(aes(x=lastObsDateTime, fill=Origin)) +
   geom_histogram(colour = 'black', alpha = .5, bins = 100) +
-  facet_grid(factor(SiteID,levels=c("IR1","IR2","IR3","IR4","IML","IR5"))~Mark.Species,scales="free") +
+  facet_grid(SiteID~Mark.Species,scales="free") +
   scale_fill_brewer(palette = 'Set1') +
   theme_bw() +
   theme(legend.position = 'bottom') +
   theme(panel.grid.major=element_blank())+
   labs(x = "First detection date",
        y = "Count")
+```
+
+
+### Unique PIT-tag observations at the Imnaha Weir by trap status (based on observation date at IR4)
+```{r }
+detect_hist %>%
+  select(Mark.Species, TrapStatus, IR4, IML, IMNAHW, IR5) %>%
+  gather(SiteID, firstObsDateTime, IR4:IR5, na.rm = TRUE) %>%
+  group_by(Mark.Species, TrapStatus, SiteID) %>%
+  summarise(Unique_tags = n()) %>%
+pander()  
+```
+
+### Passage routes of PIT-tagged fish successfully reaching and being detected at IR5
+```{r }
+detect_hist %>%
+  filter(grepl('Passed', TagStatus),
+         TaggedIn2018 == 'Recap') %>%
+  group_by(Mark.Species, TrapStatus, PassageRoute) %>%
+  summarise(Unique_tags = n()) %>%
+pander()
 ```
 
 ### Unique PIT-tag observations by site, detection efficiencies and estimated tags
@@ -141,7 +160,6 @@ ggplot(subset(AtWeir,LastObsDate>"2018/05/31"),aes(x=as.Date(LastObs,"%m/%d/%Y",
   ggtitle("Tag status: last detection at IR4/IR5/IML/IMNAHW after 5/31/18")+
   labs(x = "Last Observation Date",
        y = "Count")
-
 ```
 
 
@@ -157,7 +175,7 @@ detect_hist %>%
   ggplot(aes(x = Travel_Time, fill = Origin)) +
   geom_histogram(colour = 'black', alpha = .5, bins = 20) +
   scale_fill_brewer(palette = 'Set1') +
-  facet_grid(Reach ~ Mark.Species) +
+  facet_grid(Reach ~ Mark.Species, scales = "free") +
   theme_bw() +
   theme(legend.position = 'bottom') +
   labs(x = 'Travel Time (Days)',
@@ -166,11 +184,10 @@ detect_hist %>%
 
 
 ### Number of days spent at a site
-```{r days_site}
+```{r days_site, fig.width=8,fig.height=10 }
 # number of days at a site
 df %>%
   filter(!SiteID %in% c('COC','BSC')) %>%
-  mutate(SiteID = factor(SiteID,levels=c("IR1","IR2","IR3","IR4","IML","IR5"))) %>%
   group_by(Mark.Species, Origin, SiteID, TagID) %>%
   summarise(minObsDate = min(lastObsDateTime),
           maxObsDate = max(lastObsDateTime),

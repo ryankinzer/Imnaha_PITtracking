@@ -32,6 +32,7 @@ bull_obs_import <- read.csv(paste0("./data/", basename(bull_url)), skip = 0, col
 # Trap Install Date
 
 install_date <- ymd_hm("2018/06/11 15:00") # we could add time and second if we wanted
+bull_cutoff_date <- ymd("20180301")
 
 # Create full dataset
 chs_bull_obs_raw <- bind_rows(chs_obs_import %>%
@@ -96,11 +97,31 @@ proc_obs <- writeCapHistOutput(valid_obs,
 # join covariate data with processed capture histories & remove columns
 #Keep AutoProcStatus
 PITcleanr_2018_chs_bull <- right_join(ExtraData, proc_obs, ExtraData, by="TagID") %>%
+  filter(ObsDate >= bull_cutoff_date) %>%
   select(-TrapDate, -UserProcStatus,-ValidPath, -ModelObs,-UserComment) %>%
   select(TagID, Mark.Species, Origin, Release.Site.Code,
          firstObsDateTime = ObsDate, lastObsDateTime = lastObsDate,
          everything()) %>%
          droplevels()
+
+# need to order factor levels of nodes and sites
+node_vec <- PITcleanr_2018_chs_bull %>%
+  distinct(Node, NodeOrder) %>%
+  arrange(NodeOrder, Node) %>%
+  pull(Node)
+
+site_vec <- PITcleanr_2018_chs_bull %>%
+  select(SiteID, NodeOrder) %>%
+  group_by(SiteID) %>%
+  slice(which.min(NodeOrder)) %>%
+  arrange(NodeOrder, SiteID) %>%
+  pull(SiteID)
+
+PITcleanr_2018_chs_bull <- PITcleanr_2018_chs_bull %>%
+  mutate(Node = fct_relevel(Node, node_vec),
+         Node = fct_relevel(Node, c("COCB0", "COCA0", "IR1", "IR2", "BSCB0", "BSCA0")),
+         SiteID = fct_relevel(SiteID, site_vec))
+
 
 saveRDS(PITcleanr_2018_chs_bull,"./data/PITcleanr_2018_chs_bull.rds")
 
@@ -139,18 +160,19 @@ detect_hist <- PITcleanr_2018_chs_bull %>%
          IR2_IR3 = difftime(IR3, IR2, units = 'days'),
          IR3_IR4 = difftime(IR4, IR3, units = 'days'),
          IR4_IR5 = difftime(IR5, IR4, units = 'days')) %>%
-  mutate(TaggedIn2018= ifelse(Mark.Species=="Bull Trout"&Release.Date>ymd(20180611),"NewTag","Recap"))%>%
-  mutate(TagStatus = ifelse(AssignSpawnSite=="IR4" & LastObs <= ymd(20180611), "Passed: <11 June",
+  mutate(TaggedIn2018= ifelse(Mark.Species=="Bull Trout"&Release.Date>install_date,"NewTag","Recap"))%>%
+  mutate(TagStatus = ifelse(AssignSpawnSite=="IR4" & LastObs <= install_date, "Passed: <11 June",
                             ifelse(grepl("IR5", TagPath), "Passed",
                                    ifelse(grepl("IMNAHW", TagPath) & grepl("IR4", TagPath), "Trapped",
                                           ifelse(grepl("IML", TagPath) & grepl("IR4", TagPath), "Attempting Ladder",
                                                  ifelse(grepl("IR4", TagPath), "At Weir",paste0("Last obs: ",AssignSpawnSite)))))),
-         TrapStatus = ifelse(IR4 <= install_date, "Panels Open",
-                             ifelse(IR4 > install_date, "Panels Closed", NA)),
-         PassageRoute = ifelse(TagStatus != "Passed", NA,
+         TrapStatus = ifelse(is.na(IR4), "Not Seen at IR4",
+                             ifelse(IR4 <= install_date, "Panels Open",
+                             ifelse(IR4 > install_date, "Panels Closed", NA))),
+         PassageRoute = ifelse(!grepl("Passed", TagStatus), NA,
                                ifelse(grepl("IMNAHW", TagPath), "Handled",
-                                      ifelse(grepl("IML", TagPath), "Passed Panels - Ladder Attempt",
-                                             ifelse(grepl("IR4", TagPath), "Passed Panels - No Ladder Attemp", NA))))) 
+                                      ifelse(grepl("IML", TagPath), "Passed Panels - Ladder Attempt", "Passed Panels - No Ladder Attemp"))))
+                                            # ifelse(grepl("IR4", TagPath), "Passed Panels - No Ladder Attemp", NA))))) 
 
 #Rearange variable names
 detect_hist_out<-detect_hist%>%select(TagID,Mark.Species,Origin,TaggedIn2018,TagStatus,Release.Date,everything())
