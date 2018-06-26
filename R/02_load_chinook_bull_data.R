@@ -145,6 +145,14 @@ saveWorkbook(wb,"./data/PITcleanr_2018_chs_bull.xlsx")
 # need another field for passage route - use TagPath for ifelse (if IR5 was it IMNAHW = Handled); (if IR5 was it IML = Ladder Attempt ); if (IR5 was it IR4 = No Ladder Attempt)
 # might need to consider fish going downstream
 
+MaxTimes <- PITcleanr_2018_chs_bull %>%
+  filter(SiteID %in% c('IR4', 'IML','IMNAHW','IR5')) %>%
+  select(TagID, lastObsDateTime, SiteID) %>%
+  mutate(SiteID = factor(SiteID,levels=c('IR4', 'IML','IMNAHW','IR5'))) %>%
+  group_by(TagID, SiteID) %>%
+  slice(which.max(lastObsDateTime)) %>%
+  spread(SiteID, lastObsDateTime)%>%rename(IR4_max=IR4,IML_max=IML, IMNAHW_max=IMNAHW, IR5_max=IR5) 
+
 detect_hist <- PITcleanr_2018_chs_bull %>%
   filter(!SiteID %in% c('COC', 'BSC')) %>%
   select(TagID, Mark.Species, Origin, firstObsDateTime, SiteID, Release.Date) %>%
@@ -156,26 +164,34 @@ detect_hist <- PITcleanr_2018_chs_bull %>%
               mutate(UserProcStatus = AutoProcStatus) %>%
               rename(ObsDate = firstObsDateTime, lastObsDate = lastObsDateTime) %>%
               estimateSpawnLoc(), by = 'TagID') %>%
+  left_join(MaxTimes,by='TagID')%>%
   mutate(IR1_IR2 = difftime(IR2, IR1, units = 'days'),
          IR2_IR3 = difftime(IR3, IR2, units = 'days'),
          IR3_IR4 = difftime(IR4, IR3, units = 'days'),
          IR4_IR5 = difftime(IR5, IR4, units = 'days')) %>%
   mutate(TaggedIn2018= ifelse(Mark.Species=="Bull Trout"&Release.Date>install_date,"NewTag","Recap"))%>%
   mutate(TagStatus = ifelse(AssignSpawnSite=="IR4" & LastObs <= install_date, "Passed: <11 June",
-                            ifelse(grepl("IR5", TagPath), "Passed",
-                                   ifelse(grepl("IMNAHW", TagPath) & grepl("IR4", TagPath), "Trapped",
-                                          ifelse(grepl("IML", TagPath) & grepl("IR4", TagPath), "Attempting Ladder",
-                                                 ifelse(grepl("IR4", TagPath), "At Weir",paste0("Last obs: ",AssignSpawnSite)))))),
+                            ifelse(grepl("IR5", TagPath)&TaggedIn2018=="NewTag", "Tagged2018-Passed",
+                                   ifelse(grepl("IR5", TagPath)&TaggedIn2018=="Recap", "Passed",
+                                          ifelse(grepl("IMNAHW", TagPath) & grepl("IR4", TagPath), "Trapped",
+                                                 ifelse(grepl("IML", TagPath), "Attempting Ladder",
+                                                        ifelse(grepl("IR4", TagPath), "At Weir",paste0("Last obs: ",AssignSpawnSite))))))),
          TrapStatus = ifelse(is.na(IR4), "Not Seen at IR4",
                              ifelse(IR4 <= install_date, "Panels Open",
-                             ifelse(IR4 > install_date, "Panels Closed", NA))),
+                                    ifelse(IR4 > install_date, "Panels Closed", NA))),
          PassageRoute = ifelse(!grepl("Passed", TagStatus), NA,
                                ifelse(grepl("IMNAHW", TagPath), "Handled",
                                       ifelse(grepl("IML", TagPath), "Passed Panels - Ladder Attempt", "Passed Panels - No Ladder Attemp"))))
-                                            # ifelse(grepl("IR4", TagPath), "Passed Panels - No Ladder Attemp", NA))))) 
+# ifelse(grepl("IR4", TagPath), "Passed Panels - No Ladder Attemp", NA))))) 
+
+
+detect_hist$TagStatus[detect_hist$IR4_max>detect_hist$IMNAHW]<-"Trapped & Fell Below Weir"#tags without a detection at IR5 that fall below the weir
+
+detect_hist$PassageRoute[detect_hist$IMNAHW>install_date]<-"Handled"#tag paths that end at the trap
+detect_hist$PassageRoute[detect_hist$TagID=="3D9.1C2D90A52D"]<-"Handled Prior to Weir Install"#tag paths that end at the trap
 
 #Rearange variable names
-detect_hist_out<-detect_hist%>%select(TagID,Mark.Species,Origin,TaggedIn2018,TagStatus,Release.Date,everything())
+detect_hist_out<-detect_hist%>%select(TagID,Mark.Species,Origin,TaggedIn2018,TagStatus,TrapStatus,PassageRoute,Release.Date,everything())
 
 saveRDS(detect_hist_out,"./data/detect_hist.rds")#Save as RDS
 write.xlsx2(as.data.frame(detect_hist_out),"./data/detect_hist.xlsx",row.names=FALSE) 
@@ -184,7 +200,6 @@ sheets2 <- getSheets(wb2)
 #autoSizeColumn(sheets2[[1]], colIndex=1:ncol(detect_hist))# autosize column widths
 setColumnWidth(sheets2[[1]],colIndex=1:ncol(detect_hist_out),colWidth=18)
 saveWorkbook(wb2,"./data/detect_hist.xlsx")
-saveRDS(detect_hist,"./data/detect_hist.rds")
 
 
 ##Amazon and Shiny####
