@@ -79,7 +79,9 @@ chs_bull_tags <- chs_bull_obs_raw %>%
   mutate(TagID = `Tag Code`,TrapDate=as.Date("2018-01-01"))
 
 # load PITcleanR configuration files run on June 5th
-load("./data/config_data_20180605.rda")
+#load("./data/config_data_20180605.rda")
+# load PITcleanR configuration files run on June 29th
+load("./data/config_data_20180629.rda")
 
 # assign node names to each observation and truncate
 valid_obs <- assignNodes(valid_tag_df = chs_bull_tags,
@@ -87,6 +89,13 @@ valid_obs <- assignNodes(valid_tag_df = chs_bull_tags,
                          configuration = my_config,
                          parent_child_df = parent_child,
                          truncate = T)
+
+#------------------------------------------------------------------------------
+# need to test this section once we have IML 09 records
+#------------------------------------------------------------------------------
+valid_obs <- valid_obs %>%
+  mutate(SiteID = ifelse(Node == 'IMNAHWB0', 'IMNAHW', SiteID))
+#------------------------------------------------------------------------------
 
 # assign direction and valid observation calls
 proc_obs <- writeCapHistOutput(valid_obs,

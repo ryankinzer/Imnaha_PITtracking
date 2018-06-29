@@ -19,6 +19,12 @@ run_date <- Sys.Date()
 # group configuration in
 
 my_config <- buildConfig()
+
+my_config <- my_config %>%
+  # need to change SiteID - IML 09 to IMNAHW and IMWB0
+  # need to change Node = IMNAHW to IMWA0
+  mutate(Node = ifelse(SiteID == 'IMNAHW', 'IMNAHWA0', Node),
+         Node = ifelse(SiteID == 'IML' & AntennaID == '09', 'IMNAHWB0', Node))
  
 # hard coded network of sites upstream of LGR
 site_df = writeLGRNodeNetwork()

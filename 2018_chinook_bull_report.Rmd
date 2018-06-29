@@ -38,7 +38,8 @@ panderOptions('round',2)
 
 df<-readRDS("./data/PITcleanr_2018_chs_bull.rds")
 detect_hist<-readRDS("./data/detect_hist.rds")
-load("./data/config_data_20180605.rda")
+#load("./data/config_data_20180605.rda")
+load("./data/config_data_20180629.rda")
 
 ```
 
@@ -123,7 +124,7 @@ tmp_df %>%
   group_by(Mark.Species, Obs_location) %>%
   do(nodeEfficiency(.,direction="Upstream")) %>%
   arrange(Mark.Species, NodeOrder) %>%
-  mutate(det_eff = ifelse(Node != 'IMNAHW', Recaps/Marks, 1.00),
+  mutate(det_eff = ifelse(!grepl('IMNAHW', Node), Recaps/Marks, 1.00),
          se_eff = (1/Marks^2)*(Marks*det_eff)*(1-det_eff),
          N_tags = Unique_tags/det_eff,
          se_N = sqrt(((Marks+1)*(Unique_tags+1)*(Marks - Recaps) * (Unique_tags - Recaps))/ ((Recaps+1)^2 * (Recaps+2))),
