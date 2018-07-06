@@ -84,17 +84,17 @@ chs_bull_tags <- chs_bull_obs_raw %>%
 load("./data/config_data_20180629.rda")
 
 # assign node names to each observation and truncate
-valid_obs_errors<- assignNodes(valid_tag_df = chs_bull_tags,
-                         observation = chs_bull_obs_raw,
-                         configuration = my_config,
-                         parent_child_df = parent_child,
-                         truncate = F)
-
-#Look for errors in the assignNodes function where Nodes are "ERROR"
-NodeError<-valid_obs_errors%>%filter(Node=="ERROR")%>%select(TagID,SiteID,AntennaID,ConfigID)%>%distinct()
-write.xlsx2(as.data.frame(NodeError),"./data/NodeError.xlsx",row.names=FALSE)#Export problem records to an excel file
 
 
+# valid_obs_errors<- assignNodes(valid_tag_df = chs_bull_tags,
+#                          observation = chs_bull_obs_raw,
+#                          configuration = my_config,
+#                          parent_child_df = parent_child,
+#                          truncate = F)
+# 
+# #Look for errors in the assignNodes function where Nodes are "ERROR"
+# NodeError<-valid_obs_errors%>%filter(Node=="ERROR")%>%select(TagID,SiteID,AntennaID,ConfigID)%>%distinct()
+# write.xlsx2(as.data.frame(NodeError),"./data/NodeError.xlsx",row.names=FALSE)#Export problem records to an excel file
 
 valid_obs <- assignNodes(valid_tag_df = chs_bull_tags,
                          observation = chs_bull_obs_raw,
@@ -186,20 +186,10 @@ detect_hist <- PITcleanr_2018_chs_bull %>%
               rename(ObsDate = firstObsDateTime, lastObsDate = lastObsDateTime) %>%
               estimateSpawnLoc(), by = 'TagID') %>%
   left_join(MaxTimes,by='TagID')%>%
-  mutate(IR1_IR2 = difftime(IR2, IR1, units = 'days'),
-         IR2_IR3 = difftime(IR3, IR2, units = 'days'),
+  mutate(min_IR1orIR2 = if_else(is.na(IR1), IR2, IR1),
+         IR1_IR3 = difftime(IR3, min_IR1orIR2, units = 'days'),
          IR3_IR4 = difftime(IR4, IR3, units = 'days'),
          IR4_IR5 = difftime(IR5, IR4, units = 'days')) %>%
-<<<<<<< HEAD
-  mutate(TaggedIn2018= ifelse(Mark.Species=="Bull Trout"&Release.Date>install_date,"NewTag","Recap"))%>%  # need to change to logical and rename as new tag
-  mutate(TagStatus = ifelse(AssignSpawnSite=="IR4" | "IML" & LastObs <= install_date, "Passed: <11 June",
-                            ifelse(grepl("IR5", TagPath)&TaggedIn2018=="NewTag", "Tagged2018-Passed",
-                                   ifelse(grepl("IR5", TagPath)&TaggedIn2018=="Recap", "Passed",
-                                          ifelse(grepl("IMNAHW", TagPath) & grepl("IR4", TagPath), "Trapped",
-                                                 ifelse(grepl("IML", TagPath), "Attempting Ladder",
-                                                        ifelse(grepl("IR4", TagPath), "At Weir",paste0("Last obs: ",AssignSpawnSite))))))),
-         TrapStatus = ifelse(is.na(IR4), "Not Seen at IR4",
-=======
   mutate(NewTag= ifelse(Mark.Species=="Bull Trout"&Release.Date>install_date,"True","False"))%>%
   mutate(TagStatus = ifelse(grepl("(IR4|IMNAHW|IML)",TagPath) & LastObs <= install_date, "Passed: <11 June",
                             ifelse(grepl("IR5", TagPath)&NewTag=="True", "NewTag",
@@ -208,12 +198,11 @@ detect_hist <- PITcleanr_2018_chs_bull %>%
                                                  ifelse(grepl("IML", TagPath), "Attempted Ladder",
                                                         ifelse(grepl("IR4", TagPath), "At Weir",paste0("Last obs: ", AssignSpawnSite))))))),
          TrapStatus = ifelse(is.na(IR4), "No obs at IR4",
->>>>>>> 11fc2f53e00d4ae12c30f96e2e77cfe07f4bd283
                              ifelse(IR4 <= install_date, "Panels Open",
                                     ifelse(IR4 > install_date, "Panels Closed", NA))),
          PassageRoute = ifelse(!grepl("Passed", TagStatus), NA,
                                ifelse(grepl("IMNAHW", TagPath), "Handled",
-                                      ifelse(grepl("IML", TagPath), "IML obs= T", "IML obs= F"))))
+                                      ifelse(grepl("IML", TagPath), "IML obs = T", "IML obs = F"))))
 
 detect_hist$TagStatus[detect_hist$IR4_max>detect_hist$IMNAHW&detect_hist$IMNAHW>install_date]<-"Trapped: Obs Below Weir"#tags without a detection at IR5 that fall below the weir
 
