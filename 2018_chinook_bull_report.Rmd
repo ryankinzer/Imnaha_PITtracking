@@ -115,9 +115,13 @@ pander()
 ### Unique PIT-tag observations by site, detection efficiencies and estimated tags
 
 ```{r efficiency}
-tmp_df <- df %>%
-  mutate(Node = gsub("A0", "B0", Node))  # calculates efficiency at the site level
-
+tmp_df <- df %>% 
+  anti_join(detect_hist %>%
+            filter(TaggedIn2018 == "NewTag") %>%
+            select(TagID)
+            ) %>%
+  mutate(Node = gsub("A0", "B0", Node)) # calculates efficiency at the site level
+  
 tmp_df %>%
   filter(!Node%in%c("COCA0","COCB0","BSCA0","BSCB0", "IMNAHR")) %>%
   mutate(Obs_location = ifelse(grepl("IR", Node), "Instream", "Ladder-Trap")) %>%
@@ -132,7 +136,8 @@ tmp_df %>%
          upr_N = N_tags + 1.96*se_N,
          N_up = lag(N_tags),
          Conversion = paste0(round(N_tags/N_up*100),"%"),
-         Node = gsub("B0", "", Node)) %>%
+         Node = gsub("B0", "", Node)
+         ) %>%
   ungroup() %>%
   select(Mark.Species, SiteID = Node, Unique_Tags = Unique_tags, det_eff, N_tags, lwr_N, upr_N, Conversion) %>%
   pander()

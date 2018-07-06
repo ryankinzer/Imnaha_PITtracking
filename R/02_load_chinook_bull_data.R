@@ -178,8 +178,8 @@ detect_hist <- PITcleanr_2018_chs_bull %>%
          IR2_IR3 = difftime(IR3, IR2, units = 'days'),
          IR3_IR4 = difftime(IR4, IR3, units = 'days'),
          IR4_IR5 = difftime(IR5, IR4, units = 'days')) %>%
-  mutate(TaggedIn2018= ifelse(Mark.Species=="Bull Trout"&Release.Date>install_date,"NewTag","Recap"))%>%
-  mutate(TagStatus = ifelse(AssignSpawnSite=="IR4" & LastObs <= install_date, "Passed: <11 June",
+  mutate(TaggedIn2018= ifelse(Mark.Species=="Bull Trout"&Release.Date>install_date,"NewTag","Recap"))%>%  # need to change to logical and rename as new tag
+  mutate(TagStatus = ifelse(AssignSpawnSite=="IR4" | "IML" & LastObs <= install_date, "Passed: <11 June",
                             ifelse(grepl("IR5", TagPath)&TaggedIn2018=="NewTag", "Tagged2018-Passed",
                                    ifelse(grepl("IR5", TagPath)&TaggedIn2018=="Recap", "Passed",
                                           ifelse(grepl("IMNAHW", TagPath) & grepl("IR4", TagPath), "Trapped",
