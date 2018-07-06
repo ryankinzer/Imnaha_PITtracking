@@ -29,7 +29,7 @@ editor_options:
 
 * Bull Trout PIT tag:  3D9.1C2D90A52D was captured by weir staff on 6/5/2018 in the adult ladder before the antennas at IML were lowered into the ladder.  IR5 was not functional on 6/5.  We presume this fish passed upstream of IR5 prior to the weir installation.  
 
-* Chinook PIT tag 3DD.00777AEC3F was trapped on 6/22/18 and released back into the Imnaha River below IR3 for a second pass through the tribal fishery. First visit to IR4 = 6/20; second visit = 7/02. 
+* Chinook PIT tag 3DD.00777AEC3F was trapped on 6/22/18 and released back into the Imnaha River below IR3. First visit to IR4 = 6/20; second visit = 7/02. 
 
 
 ```{r setup, echo = FALSE, include = FALSE}
@@ -108,9 +108,9 @@ df %>%
        y = "Count")
 ```
 
-### Unique PIT-tag observations by site, detection efficiencies and estimated tags  
+### Efficiencies at the node level  
 
-Detection efficiencies and conversion rates for Bull Trout and Chinook Salmon detected at IR1-IR5, IML, and IMNAHW.  
+Detection efficiencies at the node level (i.e., upstream and downstream antenna grous) and conversion rates for Bull Trout and Chinook Salmon detected at IR1-IR5, IML, and IMNAHW.  Detections in the trap house from the measuring board PIT reader will be labeled "IMNAHWB0".
 
 ```{r efficiency}
 tmp_df <- df %>% 
@@ -122,10 +122,44 @@ tmp_df <- df %>%
   #mutate(Node = gsub("A0", "B0", Node)) %>%# calculates efficiency at the site level
   identity()
 
-  
 tmp_df %>%
-  mutate(Obs_location = ifelse(grepl("IR", Node), "Instream", "Ladder")) %>%
-  group_by(Mark.Species, Obs_location) %>%
+  #mutate(Obs_location = ifelse(grepl("IR", Node), "Instream", "Ladder")) %>%
+  group_by(Mark.Species) %>%
+  do(nodeEfficiency(.,direction="Upstream")) %>%
+  arrange(Mark.Species, NodeOrder) %>%
+  mutate(det_eff = Recaps/Marks, #ifelse(!grepl('IMNAHW', Node), Recaps/Marks, 1.00),
+         se_eff = (1/Marks^2)*(Marks*det_eff)*(1-det_eff),
+         N_tags = Unique_tags/det_eff,
+         se_N = sqrt(((Marks+1)*(Unique_tags+1)*(Marks - Recaps) * (Unique_tags - Recaps))/ ((Recaps+1)^2 * (Recaps+2))),
+         lwr_N = N_tags - 1.96*se_N,
+         upr_N = N_tags + 1.96*se_N,
+         N_up = lag(N_tags),
+         Conversion = paste0(round(N_tags/N_up*100),"%")
+         #Node = gsub("B0", "", Node)
+         ) %>%
+  ungroup() %>%
+  select(Mark.Species, Node, Unique_Tags = Unique_tags, Marks, Recaps, det_eff, Conversion) %>%
+  pander()
+
+```
+
+###Efficiency at the site level  
+
+Detection efficiencies and converson rates at the site level.  See the Node level estimates above for an efficiency estimate at IR5B0.
+```{r echo=FALSE}
+
+tmp_df <- df %>% 
+  filter(!Node%in%c("COCA0","COCB0","BSCA0","BSCB0", "IMNAHR")) %>%
+  anti_join(detect_hist %>%
+            filter(NewTag == 'True') %>%
+            select(TagID)
+            ) %>%
+  mutate(Node = gsub("A0", "B0", Node)) %>%# calculates efficiency at the site level
+  identity()
+
+tmp_df %>%
+  #mutate(Obs_location = ifelse(grepl("IR", Node), "Instream", "Ladder")) %>%
+  group_by(Mark.Species) %>%
   do(nodeEfficiency(.,direction="Upstream")) %>%
   arrange(Mark.Species, NodeOrder) %>%
   mutate(det_eff = Recaps/Marks, #ifelse(!grepl('IMNAHW', Node), Recaps/Marks, 1.00),
@@ -136,14 +170,13 @@ tmp_df %>%
          upr_N = N_tags + 1.96*se_N,
          N_up = lag(N_tags),
          Conversion = paste0(round(N_tags/N_up*100),"%"),
-         #Node = gsub("B0", "", Node)
+         Node = gsub("B0", "", Node)
          ) %>%
   ungroup() %>%
-  select(Mark.Species, Node, Unique_Tags = Unique_tags, det_eff, N_tags, lwr_N, upr_N) %>%
+  select(Mark.Species, Node, Unique_Tags = Unique_tags, Marks, Recaps, det_eff, Conversion) %>% filter(Node!="IR5")%>%
   pander()
 
 ```
-
 
 
 ### Unique PIT-tag observations at the Imnaha Weir by trap status (based on observation date at IR4)
@@ -159,13 +192,13 @@ pander()
 ### Passage routes of PIT-tagged fish successfully reaching and being detected at IR5  
 This summary is limited to previously tagged fish (i.e., not tagged at IMNAHW in 2018) detected at IR5.  
 
-**PassageRoute**  
+*Passage Route descriptions:*  
 * *Handled*: Processed in the trap house (IMNAHW) followed by a detection at IR5.  
-* *Passed Panels-No Ladder Attempt*: Detected at IR5 with no PIT tag detection at IML and no detection in the trap house.  
-* *Passed Panels-Ladder Attempt*:  Detected in the ladder, no detection in the trap house, and a detection at IR5. 
+* *IML obs = F *: Not detected at IML.  
+* *IML obs = T*:  Detected at IML. 
 
-**TrapStatus**  
-* *Not Seen at IR4*: no PIT tag observation at IR4.  
+*Trap Status descriptions**  
+* *No obs at IR4*: no PIT tag observation at IR4.  
 * *Panels Closed*: Indicates that the weir was fully operational.  
 * *Panels Open*:  Separates out detections at IR5 before the weir was operational.  
 
@@ -182,7 +215,19 @@ pander()
 ```
 
 
-### Unique PIT-tag observations by tag status
+### Unique PIT-tag observations by tag status  
+*Tag status descriptions:*  
+* *At Weir*: Observed at IR4 but not IML, IMNAHW, or IR5.   
+* *Attempted Ladder*: Detected at IML, but not detected at IMNAHW. 
+* *Last obs: BSC*: Observed at Big Sheep Creek.  
+* *Last obs: IR1/IR2/IR3*: Observed at IR1, IR2, or IR3, respectively.  
+* *NewTag*: Bull Trout tagged at IMNAHW in 2018.  
+* *Passed*: Detected at IR5.  
+* *Trapped*: Handled at IMNAHW, but no subsequent detection IR5.  
+* *Trapped: Obs Below Weir*: Handled at IMNAHW & detected at IR4>IMNAHW  
+ 
+
+
 ```{r}
 detect_hist %>%
   group_by(Mark.Species, Origin, TagStatus) %>%
@@ -300,4 +345,4 @@ The complete PIT-tag histories for Chinook Salmon and Bull trout detected during
 
 #####*Output Files:*  
 * *PITcleanr_2018_chs_bull.xlsx*:  The complete tag histories from 2018_Imnaha_ComploeteTagHistory.csv and Imnanha_Bull_Complete_Tag_Histories.csv combined into a single file and processed with the PITcleanr R-package.  
-* *detect_hist.xlsx*: A pivot table style summary.  Each row = a unique PIT tag code.  Columns correspond to first detection dates at IR1-IR5, IML, and IMNAHW.  The LastObs date is the last obsevation date/time in the complete tag history file.  This file contains the Trap Status, TagPath, Passage Route, and TagStatus fields.  Trap status references the dates the weir was opeating (ryan, want to expand). TagPath is a character string representing detections at PIT tag observations sites.  TagStatus represents the last known location of the tag and whether the tag has arrived at the weir, has attempted the ladder (i.e., detected at IML), passed the weir (i.e., detected at IR5), or has been trapped (i.e., detected at IMNAHW). The tag pathway describes the passage route through the weir.
+* *detect_hist.xlsx*: A pivot table style summary. (This description is not complete JF 7/6/18) Each row = a unique PIT tag code.  Columns correspond to first detection dates at IR1-IR5, IML, and IMNAHW.  This file contains the Trap Status, TagPath, Passage Route, and TagStatus fields.  Trap status references the dates the weir was operating. TagPath is a character string representing detections at PIT tag observations sites.  TagStatus represents the last known location of the tag and whether the tag has arrived at the weir, has attempted the ladder (i.e., detected at IML), passed the weir (i.e., detected at IR5), or has been trapped (i.e., detected at IMNAHW). The tag pathway describes the passage route through the weir.
