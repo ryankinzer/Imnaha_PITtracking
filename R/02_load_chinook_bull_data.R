@@ -123,6 +123,8 @@ PITcleanr_2018_chs_bull <- right_join(ExtraData, proc_obs, ExtraData, by="TagID"
   select(TagID, Mark.Species, Origin, Release.Site.Code,
          firstObsDateTime = ObsDate, lastObsDateTime = lastObsDate,
          everything()) %>%
+  left_join(node_order %>%
+              select(Node, RKMTotal), by = 'Node') %>%
          droplevels()
 
 # need to order factor levels of nodes and sites
@@ -142,6 +144,8 @@ PITcleanr_2018_chs_bull <- PITcleanr_2018_chs_bull %>%
   mutate(Node = fct_relevel(Node, node_vec),
          Node = fct_relevel(Node, c("COCB0", "COCA0", "IR1", "IR2", "BSCB0", "BSCA0")),
          SiteID = fct_relevel(SiteID, site_vec))
+
+
 
 
 saveRDS(PITcleanr_2018_chs_bull,"./data/PITcleanr_2018_chs_bull.rds")
