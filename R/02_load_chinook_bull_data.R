@@ -125,6 +125,7 @@ PITcleanr_2018_chs_bull <- right_join(ExtraData, proc_obs, ExtraData, by="TagID"
          everything()) %>%
   left_join(node_order %>%
               select(Node, RKMTotal), by = 'Node') %>%
+  mutate(RiverKM = RKMTotal - 830) %>%
          droplevels()
 
 # need to order factor levels of nodes and sites
