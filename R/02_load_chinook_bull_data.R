@@ -194,6 +194,8 @@ detect_hist <- PITcleanr_2018_chs_bull %>%
   mutate(min_IR1orIR2 = if_else(is.na(IR1), IR2, IR1),
          IR1_IR3 = difftime(IR3, min_IR1orIR2, units = 'days'),
          IR3_IR4 = difftime(IR4, IR3, units = 'days'),
+         IR4_IML = difftime(IML, IR4, units = 'days'),
+         IML_IMNAHW = difftime(IMNAHW, IML, units = 'days'),
          IR4_IR5 = difftime(IR5, IR4, units = 'days')) %>%
   mutate(NewTag= ifelse(Mark.Species=="Bull Trout"&Release.Date>install_date,"True","False"))%>%
   mutate(TagStatus = ifelse(grepl("(IR4|IMNAHW|IML)",TagPath) & LastObs <= install_date, "Passed: <11 June",
@@ -235,7 +237,7 @@ aws.s3::s3write_using(PITcleanr_2018_chs_bull, FUN = write.csv,
               bucket = "nptfisheries-pittracking",
               object = "PITcleanr_2018_chs_bull")
 
-aws.s3::s3write_using(detect_hist, FUN = write.csv,
+aws.s3::s3write_using(detect_hist_out, FUN = write.csv,
                       bucket = "nptfisheries-pittracking",
                       object = "detection_history_2018")
 
