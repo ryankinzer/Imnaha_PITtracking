@@ -146,9 +146,6 @@ PITcleanr_2018_chs_bull <- PITcleanr_2018_chs_bull %>%
          Node = fct_relevel(Node, c("COCB0", "COCA0", "IR1", "IR2", "BSCB0", "BSCA0")),
          SiteID = fct_relevel(SiteID, site_vec))
 
-
-
-
 saveRDS(PITcleanr_2018_chs_bull,"./data/PITcleanr_2018_chs_bull.rds")
 
 #Write xlsx file and auto fit the column widths
@@ -194,8 +191,13 @@ detect_hist <- PITcleanr_2018_chs_bull %>%
   mutate(min_IR1orIR2 = if_else(is.na(IR1), IR2, IR1),
          IR1_IR3 = difftime(IR3, min_IR1orIR2, units = 'days'),
          IR3_IR4 = difftime(IR4, IR3, units = 'days'),
-         IR4_IR5 = difftime(IR5, IR4, units = 'days')) %>%
+         IR4_IR5 = difftime(IR5, IR4, units = 'days'),
+        IR4_IMNAHW=difftime(IMNAHW,IR4,units='days'),
+        IR4_IML=difftime(IML,IR4,units='days'),
+        IML_IMNAHW=difftime(IMNAHW,IML,units='days'))%>%
   mutate(NewTag= ifelse(Mark.Species=="Bull Trout"&Release.Date>install_date,"True","False"))%>%
+  mutate(WeirArrivalDate=if_else(!is.na(IR4), IR4, IML))%>%#if IR4 has a date, use IR4, otherwise use IML
+  mutate(WeirArrivalDate=if_else(!is.na(WeirArrivalDate), WeirArrivalDate, IR5))%>%#if arrival date is missing, use IR5
   mutate(TagStatus = ifelse(grepl("(IR4|IMNAHW|IML)",TagPath) & LastObs <= install_date, "Passed: <11 June",
                             ifelse(grepl("IR5", TagPath)&NewTag=="True", "NewTag",
                                    ifelse(grepl("IR5", TagPath)&NewTag=="False", "Passed",
@@ -210,12 +212,14 @@ detect_hist <- PITcleanr_2018_chs_bull %>%
                                       ifelse(grepl("IML", TagPath), "IML obs = T", "IML obs = F"))))
 
 detect_hist$TagStatus[detect_hist$IR4_max>detect_hist$IMNAHW&detect_hist$IMNAHW>install_date]<-"Trapped: Obs Below Weir"#tags without a detection at IR5 that fall below the weir
+detect_hist$TagStatus[detect_hist$TagStatus=="Trapped: Obs Below Weir"&detect_hist$IR5>detect_hist$IR4_max]<-"Passed"#fell below weir, but made it back to IR5
+
 
 detect_hist$PassageRoute[detect_hist$IMNAHW>install_date]<-"Handled"#tag paths that end at the trap
 detect_hist$PassageRoute[detect_hist$TagID=="3D9.1C2D90A52D"]<-"Handled 6/5/18"#tag paths that end at the trap
 
 #Rearange variable names
-detect_hist_out<-detect_hist%>%select(TagID,Mark.Species,Origin,NewTag,TagStatus,TrapStatus,PassageRoute,Release.Date,everything())
+detect_hist_out<-detect_hist%>%select(TagID,Mark.Species,Origin,NewTag,TagStatus,TrapStatus,PassageRoute,Release.Date,WeirArrivalDate,everything())
 
 saveRDS(detect_hist_out,"./data/detect_hist.rds")#Save as RDS
 write.xlsx2(as.data.frame(detect_hist_out),"./data/detect_hist.xlsx",row.names=FALSE) 
@@ -235,7 +239,7 @@ aws.s3::s3write_using(PITcleanr_2018_chs_bull, FUN = write.csv,
               bucket = "nptfisheries-pittracking",
               object = "PITcleanr_2018_chs_bull")
 
-aws.s3::s3write_using(detect_hist, FUN = write.csv,
+aws.s3::s3write_using(detect_hist_out, FUN = write.csv,
                       bucket = "nptfisheries-pittracking",
                       object = "detection_history_2018")
 
