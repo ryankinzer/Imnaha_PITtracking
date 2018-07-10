@@ -196,6 +196,7 @@ detect_hist <- PITcleanr_2018_chs_bull %>%
          IR3_IR4 = difftime(IR4, IR3, units = 'days'),
          IR4_IML = difftime(IML, IR4, units = 'days'),
          IML_IMNAHW = difftime(IMNAHW, IML, units = 'days'),
+         IR4_IMNAHW = difftime(IMNAHW, IR4, units = 'days'),
          IR4_IR5 = difftime(IR5, IR4, units = 'days')) %>%
   mutate(NewTag= ifelse(Mark.Species=="Bull Trout"&Release.Date>install_date,"True","False"))%>%
   mutate(TagStatus = ifelse(grepl("(IR4|IMNAHW|IML)",TagPath) & LastObs <= install_date, "Passed: <11 June",
