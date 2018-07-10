@@ -66,7 +66,7 @@ df %>%
   pander()
 ```
 
-### Unique PIT-tag observations within the Imnaha Basin by obervation site, species, origin and release site
+### Unique PIT-tag observations by species, origin and release site
 ```{r }
 df %>%
   mutate(Release.Year = year(Release.Date)) %>%
@@ -77,7 +77,7 @@ df %>%
 
 
 
-### Unique PIT-tag observations within the Imnaha Basin by species, SiteID and origin  
+### Unique PIT-tag observations by species, SiteID and origin
 Unexpanded PIT tag counts at Big Sheep Creek (BSC), Cow Creek (COC), the mainstem PIT tag interrogation sites (IR1-IR5), the Imnaha adult ladder (IML), and the Imnaha facility trap house (IMNAHW).   
 ```{r }
 df %>%
@@ -89,7 +89,6 @@ df %>%
 
 
 ### Unique PIT-tag observations within the Imnaha Basin by species, origin and arrival date
-
 First detection dates of unexpanded Bull Trout and Chinook salmon PIT tags at tributary (COC, BSC) and mainstem (IR1-IR5, IML, IMNAHW) PIT tag interrogation sites.  Site are organized from downstream to upstream with the most downstream interrogation site (COC) in the top two panels.   
 ```{r Unique Tag counts, fig.width=8,fig.height=10,message=FALSE, warning=FALSE}
 
@@ -108,7 +107,7 @@ df %>%
        y = "Count")
 ```
 
-### Efficiencies at the node level  
+### PIT tag detection efficiency at the node level  
 
 Detection efficiencies at the node level (i.e., upstream and downstream antenna grous) and conversion rates for Bull Trout and Chinook Salmon detected at IR1-IR5, IML, and IMNAHW.  Detections in the trap house from the measuring board PIT reader will be labeled "IMNAHWB0".
 
@@ -143,7 +142,7 @@ tmp_df %>%
 
 ```
 
-###Efficiency at the site level  
+###PIT tag detection efficiency at the site level  
 
 Detection efficiencies and converson rates at the site level.  See the Node level estimates above for an efficiency estimate at IR5B0.
 ```{r echo=FALSE}
@@ -189,15 +188,15 @@ detect_hist %>%
 pander()  
 ```
 
-### Passage routes of PIT-tagged fish successfully reaching and being detected at IR5  
+### Passage routes of PIT-tagged fish successfully reaching and being detected at IR5 
 This summary is limited to previously tagged fish (i.e., not tagged at IMNAHW in 2018) detected at IR5.  
 
 *Passage Route descriptions:*  
 * *Handled*: Processed in the trap house (IMNAHW) followed by a detection at IR5.  
-* *IML obs = F *: Not detected at IML.  
-* *IML obs = T*:  Detected at IML. 
+* *IML obs = F *: Not detected at IML (F = False).  
+* *IML obs = T*:  Detected at IML (T = True). 
 
-*Trap Status descriptions**  
+*Trap Status descriptions*  
 * *No obs at IR4*: no PIT tag observation at IR4.  
 * *Panels Closed*: Indicates that the weir was fully operational.  
 * *Panels Open*:  Separates out detections at IR5 before the weir was operational.  
@@ -218,7 +217,7 @@ pander()
 ### Unique PIT-tag observations by tag status  
 *Tag status descriptions:*  
 * *At Weir*: Observed at IR4 but not IML, IMNAHW, or IR5.   
-* *Attempted Ladder*: Detected at IML, but not detected at IMNAHW. 
+* *Attempted Ladder*: Detected at IML, but not detected at IMNAHW.   
 * *Last obs: BSC*: Observed at Big Sheep Creek.  
 * *Last obs: IR1/IR2/IR3*: Observed at IR1, IR2, or IR3, respectively.  
 * *NewTag*: Bull Trout tagged at IMNAHW in 2018.  
@@ -242,6 +241,7 @@ ggplot(subset(AtWeir,LastObsDate>"2018/05/31"),aes(x=as.Date(LastObs,"%m/%d/%Y",
   geom_histogram(colour = 'black', alpha = .5, binwidth=1)+
   geom_vline(xintercept = as.numeric(as.Date("2018-06-11")), linetype=2)+
   facet_wrap(~Mark.Species,scales="free_y",ncol=1)+
+  scale_x_date(date_breaks="5 days",date_label="%m-%d")+
   scale_fill_brewer(palette = 'Set1') +
   theme_bw() +
   theme(legend.position = 'bottom')+ 
@@ -307,6 +307,28 @@ IR3tags%>%group_by(Mark.Species,Origin)%>%tally() %>% pander()
 
 ```
 
+###Minimum Travel Time from IR4 to IMNAHW  
+
+```{r}
+
+
+detect_hist %>%
+  select(TagID, Mark.Species, Origin, IR4_IML,IR4_IMNAHW,IML_IMNAHW) %>%
+  mutate_at(c(4:6), as.numeric) %>%
+  gather(Reach, Travel_Time, IR4_IML,IR4_IMNAHW,IML_IMNAHW) %>%
+  filter(Travel_Time >= 0) %>%
+  mutate(Reach=factor(Reach,levels=c('IR4_IML','IR4_IMNAHW','IML_IMNAHW')))%>%
+  #filter(Reach == "IR4_IR5") %>%
+  ggplot(aes(x = Travel_Time, fill = Origin)) +
+  geom_histogram(colour = 'black', alpha = .5, bins = 20) +
+  scale_fill_brewer(palette = 'Set1') +
+  facet_grid(Reach ~ Mark.Species, scales = "free") +
+  theme_bw() +
+  theme(legend.position = 'bottom') +
+  labs(x = 'Travel Time (Days)',
+       y = 'Count') 
+  
+```
 
 
 
@@ -325,7 +347,7 @@ TagStatusAtWeir %>% rename(IR4_min=IR4)%>%mutate(IR4_min=as.Date(IR4_min,format=
 ```
 
 ### Source Data
-The complete PIT-tag histories for Chinook Salmon and Bull trout detected during 2018 in the Imnaha River Basin were downloaded as two seperate files located on the [PTAGIS ftp server](ftp://ftp.ptagis.org/MicroStrategyExport/). The files are the result of running "Complete Tag History" queries that were parameterized on the [PTAGIS website](https://www.ptagis.org/) and set-up to run and save automatically at 6:00 a.m. each day.  The first file contains Chinook Salmon PIT-tag detections and is stored at the "*feldhauj/2018_Imnaha_CompleteTagHistory.csv*" file path within the ftp server.  The second file contains Bull trout detections and is stored within the "*rkinzer/Imnaha_Bull_Complete_Tag_History.csv*" filepath.  We are then using an R-script to download the files from the PTAGIS ftp server and combine them into a single file.  Once the file is combined all Chinook Salmon and Bull trout tag detections are processed using the R package [PITcleanR](https://github.com/kevinsee/PITcleanR). The final dataset provides a simplified tag history with the first and last detection dates at each PIT-tag detection node (i.e., a single spanning array or antenna) and information regarding upstream and downstream movements and a more general migration direction.   
+The complete PIT-tag histories for Chinook Salmon and Bull trout detected during 2018 in the Imnaha River Basin were downloaded as two seperate files located on the [PTAGIS ftp server](ftp://ftp.ptagis.org/MicroStrategyExport/). The files are the result of running "Complete Tag History" queries that were parameterized on the [PTAGIS website](https://www.ptagis.org/) and set-up to run and save automatically at 6:00 a.m. and 12:00 p.m. each day.  The first file contains Chinook Salmon PIT-tag detections and is stored at the "*feldhauj/2018_Imnaha_CompleteTagHistory.csv*" file path within the ftp server.  The second file contains Bull trout detections and is stored within the "*rkinzer/Imnaha_Bull_Complete_Tag_History.csv*" filepath.  We are then using an R-script to download the files from the PTAGIS ftp server and combine them into a single file.  Once the file is combined all Chinook Salmon and Bull trout tag detections are processed using the R package [PITcleanR](https://github.com/kevinsee/PITcleanR). The final dataset provides a simplified tag history with the first and last detection dates at each PIT-tag detection node (i.e., a single spanning array or antenna) and information regarding upstream and downstream movements and a more general migration direction.   
 
 #####*Creating the PTAGIS Chinook Complete Tag History report:*  
 * *Tag list #1:* Static Tag list for all Chinook tagged in 2018 and released at BONAFF or LGRLDR.  
