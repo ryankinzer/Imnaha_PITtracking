@@ -191,10 +191,10 @@ detect_hist <- PITcleanr_2018_chs_bull %>%
   mutate(min_IR1orIR2 = if_else(is.na(IR1), IR2, IR1),
          IR1_IR3 = difftime(IR3, min_IR1orIR2, units = 'days'),
          IR3_IR4 = difftime(IR4, IR3, units = 'days'),
-         IR4_IR5 = difftime(IR5, IR4, units = 'days'),
-        IR4_IMNAHW=difftime(IMNAHW,IR4,units='days'),
-        IR4_IML=difftime(IML,IR4,units='days'),
-        IML_IMNAHW=difftime(IMNAHW,IML,units='days'))%>%
+         IR4_IML = difftime(IML, IR4, units = 'days'),
+         IML_IMNAHW = difftime(IMNAHW, IML, units = 'days'),
+         IR4_IMNAHW = difftime(IMNAHW, IR4, units = 'days'),
+         IR4_IR5 = difftime(IR5, IR4, units = 'days')) %>%
   mutate(NewTag= ifelse(Mark.Species=="Bull Trout"&Release.Date>install_date,"True","False"))%>%
   mutate(WeirArrivalDate=if_else(!is.na(IR4), IR4, IML))%>%#if IR4 has a date, use IR4, otherwise use IML
   mutate(WeirArrivalDate=if_else(!is.na(WeirArrivalDate), WeirArrivalDate, IR5))%>%#if arrival date is missing, use IR5
