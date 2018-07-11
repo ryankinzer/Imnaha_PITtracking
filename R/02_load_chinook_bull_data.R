@@ -195,18 +195,19 @@ detect_hist <- PITcleanr_2018_chs_bull %>%
          IML_IMNAHW = difftime(IMNAHW, IML, units = 'days'),
          IR4_IMNAHW = difftime(IMNAHW, IR4, units = 'days'),
          IR4_IR5 = difftime(IR5, IR4, units = 'days')) %>%
-  mutate(NewTag= ifelse(Mark.Species=="Bull Trout"&Release.Date>install_date,"True","False"))%>%
-  mutate(WeirArrivalDate=if_else(!is.na(IR4), IR4, IML))%>%#if IR4 has a date, use IR4, otherwise use IML
-  mutate(WeirArrivalDate=if_else(!is.na(WeirArrivalDate), WeirArrivalDate, IR5))%>%#if arrival date is missing, use IR5
-  mutate(TagStatus = ifelse(grepl("(IR4|IMNAHW|IML)",TagPath) & LastObs <= install_date, "Passed: <11 June",
-                            ifelse(grepl("IR5", TagPath)&NewTag=="True", "NewTag",
-                                   ifelse(grepl("IR5", TagPath)&NewTag=="False", "Passed",
+  mutate(NewTag = ifelse(Mark.Species == "Bull Trout"&Release.Date>install_date,"True","False"),
+         WeirArrivalDate = if_else(!is.na(IR4), IR4, #if IR4 has a date, use IR4,
+                                 if_else(!is.na(IML), IML, # use IML,
+                                         if_else(!is.na(IMNAHW), IMNAHW, IR5))), # if IMNAHW has a date use IMNAHW otherwise use IR5
+         Arrival_Month = month(WeirArrivalDate, label = TRUE, abbr = FALSE),
+         TagStatus = ifelse(grepl("(IR4|IML|IMNAHW|IR5)",TagPath) & WeirArrivalDate <= install_date, "Passed: <11 June",
+                            ifelse(grepl("IR5", TagPath) & NewTag == "True", "NewTag",
+                                   ifelse(grepl("IR5", TagPath) & NewTag == "False", "Passed",
                                           ifelse(grepl("IMNAHW", TagPath), "Trapped",
                                                  ifelse(grepl("IML", TagPath), "Attempted Ladder",
-                                                        ifelse(grepl("IR4", TagPath), "At Weir",paste0("Last obs: ", AssignSpawnSite))))))),
-         TrapStatus = ifelse(is.na(IR4), "No obs at IR4",
-                             ifelse(IR4 <= install_date, "Panels Open",
-                                    ifelse(IR4 > install_date, "Panels Closed", NA))),
+                                                        ifelse(grepl("IR4", TagPath), "At Weir", paste0("Last obs: ", AssignSpawnSite))))))),
+         TrapStatus = ifelse(is.na(WeirArrivalDate), "No obs at weir sites",
+                             ifelse(WeirArrivalDate <= install_date, "Panels Open", "Panels Closed")),
          PassageRoute = ifelse(!grepl("Passed", TagStatus), NA,
                                ifelse(grepl("IMNAHW", TagPath), "Handled",
                                       ifelse(grepl("IML", TagPath), "IML obs = T", "IML obs = F"))))
