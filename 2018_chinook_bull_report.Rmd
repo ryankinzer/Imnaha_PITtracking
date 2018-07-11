@@ -178,7 +178,7 @@ tmp_df %>%
 ```
 
 
-### Unique PIT-tag observations at the Imnaha Weir by trap status (based on observation date at IR4)
+### Unique PIT-tag observations at the Imnaha Weir by trap status (based on observation date at weir sites (IR4, IML, IMNAHW, IR5)
 ```{r }
 detect_hist %>%
   select(Mark.Species, TrapStatus, IR4, IML, IMNAHW, IR5) %>%
@@ -255,15 +255,16 @@ ggplot(subset(AtWeir,LastObsDate>"2018/05/31"),aes(x=as.Date(LastObs,"%m/%d/%Y",
 
 ## Travel time between sites
 
-```{r Travel Time}
+```{r Travel Time, fig.width=8,fig.height=10}
 detect_hist %>%
-  select(TagID, Mark.Species, Origin, IR1_IR3:IR4_IR5) %>%
+  select(TagID, Mark.Species, Origin, Arrival_Month, IR1_IR3:IR4_IR5) %>%
   mutate_at(c(4:6), as.numeric) %>%
   gather(Reach, Travel_Time, IR1_IR3:IR4_IR5) %>%
+  mutate(Reach = fct_relevel(Reach, c("IR1_IR3", "IR3_IR4", "IR4_IML", "IML_IMNAHW", "IR4_IMNAHW", "IR4_IR5"))) %>%
   filter(Travel_Time >= 0) %>%
-  filter(Reach == "IR4_IR5") %>%
+  #filter(Reach == "IR4_IR5") %>%
   ggplot(aes(x = Travel_Time, fill = Origin)) +
-  geom_histogram(colour = 'black', alpha = .5, bins = 20) +
+  geom_histogram(colour = 'black', alpha = .5, binwidth = 1) +
   scale_fill_brewer(palette = 'Set1') +
   facet_grid(Reach ~ Mark.Species, scales = "free") +
   theme_bw() +
@@ -273,8 +274,9 @@ detect_hist %>%
 ```
 
 
+
+```{r days_site, fig.width=8,fig.height=10, eval = FALSE}
 ### Number of days spent at a site
-```{r days_site, fig.width=8,fig.height=10 }
 # number of days at a site
 df %>%
   filter(!SiteID %in% c('COC','BSC')) %>%
@@ -307,10 +309,9 @@ IR3tags%>%group_by(Mark.Species,Origin)%>%tally() %>% pander()
 
 ```
 
+
+```{r, eval = FALSE}
 ###Minimum Travel Time from IR4 to IMNAHW  
-
-```{r}
-
 
 detect_hist %>%
   select(TagID, Mark.Species, Origin, IR4_IML,IR4_IMNAHW,IML_IMNAHW) %>%

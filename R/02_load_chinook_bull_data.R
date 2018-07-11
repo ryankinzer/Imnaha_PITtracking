@@ -229,6 +229,8 @@ sheets2 <- getSheets(wb2)
 setColumnWidth(sheets2[[1]],colIndex=1:ncol(detect_hist_out),colWidth=18)
 saveWorkbook(wb2,"./data/detect_hist.xlsx")
 
+# Compile pdf document.
+knitr::knit("2018_chinook_bull_report.Rmd")
 
 ##Amazon and Shiny####
 source('./R/aws_keys.R')
@@ -250,6 +252,8 @@ aws.s3::s3write_using(bull_obs_import, FUN = write.csv,
 aws.s3::s3write_using(chs_obs_import, FUN = write.csv,
                       bucket = "nptfisheries-pittracking",
                       object = "2018_Imnaha_CompleteTagHistory")
+
+
 
 # Clean the R-environment
 rm(list = ls())
