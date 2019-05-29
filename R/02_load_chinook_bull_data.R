@@ -32,7 +32,7 @@ bull_obs_import <- read.csv(paste0("./data/", basename(bull_url)), skip = 0, col
 # Trap Install Date
 
 install_date <- ymd_hm("2018/06/11 15:00") # we could add time and second if we wanted
-bull_cutoff_date <- ymd("20180301")
+bull_cutoff_date <- ymd(paste(year(Sys.Date()),"0301"))
 
 # Create full dataset
 chs_bull_obs_raw <- bind_rows(chs_obs_import %>%
