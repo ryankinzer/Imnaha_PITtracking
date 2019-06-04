@@ -165,7 +165,9 @@ PITcleanr_chs_bull <- PITcleanr_chs_bull %>%
          #Node = fct_relevel(Node, c("COCB0", "COCA0", "IR1", "IR2", "BSCB0", "BSCA0")),
          SiteID = fct_relevel(SiteID, site_vec))
 
-save(PITcleanr_chs_bull, file = paste0("./data/PITcleanr_",yr,"_chs_bull.rda"))
+#save(PITcleanr_chs_bull, file = paste0("./data/PITcleanr_",yr,"_chs_bull.rda"))
+saveRDS(PITcleanr_chs_bull, file = paste0("./data/PITcleanr_",yr,"_chs_bull.rds"))
+
 
 ##Amazon and Shiny####
 source('./R/aws_keys.R')
