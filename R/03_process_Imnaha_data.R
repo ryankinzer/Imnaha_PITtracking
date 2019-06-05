@@ -18,11 +18,12 @@ library(xlsx)
 yr = year(Sys.Date())
 
 # Load PITcleanR Data ----
-load(paste0("./data/PITcleanr_",yr,"_chs_bull.rda"))
+PITcleanr_chs_bull<-readRDS(paste0("./data/PITcleanr_",yr,"_chs_bull.rds"))#I prefer RDS because we can explicity name the file
+#load(paste0("./data/PITcleanr_",yr,"_chs_bull.rda"))
 
 # filter for Imanaha River only
 PITcleanr_chs_bull <- PITcleanr_chs_bull %>%
-  filter(Group == 'ImnahaRiver')
+  filter(Group == 'ImnahaRiver')#the configuration file from the 02_script contains node_order where "Group" is defined
 
 
 # Trap Install Date ----
@@ -76,7 +77,8 @@ detect_hist_simple <- PITcleanr_chs_bull %>%
               rename(ObsDate = firstObsDateTime, lastObsDate = lastObsDateTime) %>%
               estimateSpawnLoc(), by = 'TagID') %>%
   left_join(MaxTimes,by='TagID') %>%
-  select(Mark.Species, Origin, Release.Date, everything())
+  select(Mark.Species, Origin, Release.Date, everything())%>%
+  arrange(Mark.Species,Origin,TagID)
 
 write.xlsx2(as.data.frame(detect_hist_simple),paste0("./data/",yr,"_detect_hist_simple.xlsx"),row.names=FALSE) 
 
@@ -115,12 +117,13 @@ detect_hist$TagStatus[detect_hist$TagStatus=="Trapped: Obs Below Weir"&detect_hi
 
 
 detect_hist$PassageRoute[detect_hist$IMNAHW>install_date]<-"Handled"#tag paths that end at the trap
-detect_hist$PassageRoute[detect_hist$TagID=="3D9.1C2D90A52D"]<-"Handled 6/5/18"#tag paths that end at the trap
+#detect_hist$PassageRoute[detect_hist$TagID=="3D9.1C2D90A52D"]<-"Handled 6/5/18"#tag paths that end at the trap
 
 #Rearange variable names
 detect_hist_out<-detect_hist%>%select(TagID,Mark.Species,Origin,NewTag,TagStatus,TrapStatus,PassageRoute,Release.Date,WeirArrivalDate,everything())
 
-save(detect_hist_out, file = paste0("./data/",yr,"_detect_hist.rda")) #Save as rda
+saveRDS(detect_hist_out, file = paste0("./data/",yr,"_detect_hist.rds"))
+#save(detect_hist_out, file = paste0("./data/",yr,"_detect_hist.rda")) #Save as rda
 write.xlsx2(as.data.frame(detect_hist_out), paste0("./data/",yr, "_detect_hist.xlsx"),row.names=FALSE) 
 wb2 <- loadWorkbook(paste0("./data/",yr, "_detect_hist.xlsx"))
 sheets2 <- getSheets(wb2)
