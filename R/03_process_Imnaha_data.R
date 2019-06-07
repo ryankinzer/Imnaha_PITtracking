@@ -132,7 +132,7 @@ setColumnWidth(sheets2[[1]],colIndex=1:ncol(detect_hist_out),colWidth=18)
 saveWorkbook(wb2,paste0("./data/",yr, "_detect_hist.xlsx"))
 
 # Compile pdf document.
-#knitr::knit("2019_chinook_bull_report.Rmd")
+knitr::knit("2019_chinook_bull_report.Rmd")
 
 ##Amazon and Shiny####
 source('./R/aws_keys.R')
