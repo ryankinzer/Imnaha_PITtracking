@@ -27,7 +27,8 @@ chs_url <- 'ftp://ftp.ptagis.org/MicroStrategyExport/rkinzer/PITtrackR_Chinook_C
 #chs_url <- 'ftp://ftp.ptagis.org/MicroStrategyExport/feldhauj/2019_Imnaha_CompleteTagHistory.csv'#Chinook file from Joseph's script.
 download.file(chs_url, paste0("./data/", basename(chs_url)))
 chs_obs_import <- read.csv(paste0("./data/", basename(chs_url)), skip = 0, colClasses="character",
-                           fileEncoding = "UTF-16", sep = ",", header = TRUE)
+                           fileEncoding = "UTF-16", sep = ",", header = TRUE) #7466 , quote=""
+
 
 bull_url <- 'ftp://ftp.ptagis.org/MicroStrategyExport/rkinzer/PITtrackR_Bulltrout_Complete_Tag_History.csv'#Bull trout file
 download.file(bull_url, paste0("./data/", basename(bull_url)))
