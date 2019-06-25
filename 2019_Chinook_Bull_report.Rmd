@@ -35,8 +35,8 @@ The purpose of this section is to provide a quick review of important events tha
 
 ```{r load_data, message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE}
 # Un-comment out the source code to update the data
-#source("./R/02_load_ImnahaRiver_chinook_bull_data.R")
-#source("./R/03_process_Imnaha_data.R")
+source("./R/02_load_ImnahaRiver_chinook_bull_data.R")
+source("./R/03_process_Imnaha_data.R")
 df<-readRDS("./data/PITcleanr_2019_chs_bull.rds")%>%
   filter(Group=="ImnahaRiver")
 detect_hist<-readRDS("./data/2019_detect_hist.rds")
