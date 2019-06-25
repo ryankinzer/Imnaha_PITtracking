@@ -13,6 +13,7 @@
 library(tidyverse)
 library(lubridate)
 library(xlsx)
+library(PITcleanr)
 
 # Set Return Year ----
 yr = year(Sys.Date())
@@ -23,19 +24,20 @@ PITcleanr_chs_bull<-readRDS(paste0("./data/PITcleanr_",yr,"_chs_bull.rds"))#I pr
 
 # filter for Imanaha River only
 PITcleanr_chs_bull <- PITcleanr_chs_bull %>%
-  filter(Group == 'ImnahaRiver')#the configuration file from the 02_script contains node_order where "Group" is defined
-
+  filter(Group == 'ImnahaRiver',#the configuration file from the 02_script contains node_order where "Group" is defined
+         firstObsDateTime>=ymd_hm(paste0(yr,"/04/01 00:00")))
 
 # Trap Install Date ----
 trap_install <- FALSE # TRUE OR FALSE
 
 #if(trap_install){
-  install_date <- ymd_hm(paste0(yr,"/06/01 15:00")) # we could add time and second if we wanted
+  install_date <- ymd_hm(paste0(yr,"/06/21 15:00")) # we could add time and second if we wanted
 #}
 
 #Write xlsx file and auto fit the column widths
 #https://stackoverflow.com/questions/27322110/define-excels-column-width-with-r
-PITcleanr_chs_bull2<-PITcleanr_chs_bull%>%select(-AutoProcStatus)
+PITcleanr_chs_bull2<-PITcleanr_chs_bull%>%
+  select(-AutoProcStatus)
 
 write.xlsx2(as.data.frame(PITcleanr_chs_bull2),paste0("./data/PITcleanr_",yr,"_chs_bull.xlsx"),row.names=FALSE)
 wb <- loadWorkbook(paste0("./data/PITcleanr_",yr,"_chs_bull.xlsx"))
@@ -70,21 +72,22 @@ detect_hist_simple <- PITcleanr_chs_bull %>%
   mutate(SiteID = factor(SiteID,levels=c("IR1","IR2","IR3","IR4","IML","IMNAHW","IR5"))) %>%
   group_by(TagID, SiteID) %>%
   slice(which.min(firstObsDateTime)) %>%
-  spread(SiteID, firstObsDateTime, drop = FALSE) %>%
-  left_join(select(PITcleanr_chs_bull, TagID, Mark.Species, Origin, Release.Date), by = 'TagID') %>%
+  spread(SiteID, firstObsDateTime, drop = FALSE) %>%#This step seems to create duplicate tag id's.
+  left_join(select(PITcleanr_chs_bull, TagID, Mark.Species, Release.Site.Code, Origin, Release.Date), by = 'TagID') %>%
   left_join(PITcleanr_chs_bull %>%
               mutate(UserProcStatus = AutoProcStatus) %>%
               rename(ObsDate = firstObsDateTime, lastObsDate = lastObsDateTime) %>%
               estimateSpawnLoc(), by = 'TagID') %>%
   left_join(MaxTimes,by='TagID') %>%
   select(Mark.Species, Origin, Release.Date, everything())%>%
-  arrange(Mark.Species,Origin,TagID)
+  arrange(Mark.Species,Origin,TagID)%>%
+  distinct()
 
 write.xlsx2(as.data.frame(detect_hist_simple),paste0("./data/",yr,"_detect_hist_simple.xlsx"),row.names=FALSE) 
 
 ###I separated the mutate statements to calculate travel days because they don't work well with missing dates##
 ###We need detections at an interrogation site before the calculations work###
-
+glimpse(detect_hist_simple)
 detect_hist <- detect_hist_simple%>%
   mutate(min_IR1orIR2 = if_else(is.na(IR1), IR2, IR1),
          IR1_IR3 = difftime(IR3, min_IR1orIR2, units = 'days'),
@@ -100,7 +103,7 @@ detect_hist <- detect_hist_simple%>%
                                    if_else(!is.na(IML), IML, # use IML,
                                            if_else(!is.na(IMNAHW), IMNAHW, IR5))), # if IMNAHW has a date use IMNAHW otherwise use IR5
          Arrival_Month = month(WeirArrivalDate, label = TRUE, abbr = FALSE),
-         TagStatus = ifelse(grepl("(IR4|IML|IMNAHW|IR5)",TagPath) & WeirArrivalDate <= install_date, "Passed: <11 June",
+         TagStatus = ifelse(grepl("(IR4|IML|IMNAHW|IR5)",TagPath) & WeirArrivalDate <= install_date, "Passed: <21 June",
                             ifelse(grepl("IR5", TagPath) & NewTag == "True", "NewTag",
                                    ifelse(grepl("IR5", TagPath) & NewTag == "False", "Passed",
                                           ifelse(grepl("IMNAHW", TagPath), "Trapped",
@@ -120,7 +123,8 @@ detect_hist$PassageRoute[detect_hist$IMNAHW>install_date]<-"Handled"#tag paths t
 #detect_hist$PassageRoute[detect_hist$TagID=="3D9.1C2D90A52D"]<-"Handled 6/5/18"#tag paths that end at the trap
 
 #Rearange variable names
-detect_hist_out<-detect_hist%>%select(TagID,Mark.Species,Origin,NewTag,TagStatus,TrapStatus,PassageRoute,Release.Date,WeirArrivalDate,everything())
+detect_hist_out<-detect_hist%>%
+  select(TagID,Mark.Species,Origin, Release.Site.Code,NewTag,TagStatus,TrapStatus,PassageRoute,Release.Date,WeirArrivalDate,everything())
 
 saveRDS(detect_hist_out, file = paste0("./data/",yr,"_detect_hist.rds"))
 #save(detect_hist_out, file = paste0("./data/",yr,"_detect_hist.rda")) #Save as rda
@@ -132,7 +136,7 @@ setColumnWidth(sheets2[[1]],colIndex=1:ncol(detect_hist_out),colWidth=18)
 saveWorkbook(wb2,paste0("./data/",yr, "_detect_hist.xlsx"))
 
 # Compile pdf document.
-knitr::knit("2019_chinook_bull_report.Rmd")
+#knitr::knit("2019_chinook_bull_report.Rmd")#if I knit the report from R studio at my end, this line of code causes problems
 
 ##Amazon and Shiny####
 source('./R/aws_keys.R')
