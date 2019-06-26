@@ -2,7 +2,12 @@
 title: "2019 Imnaha River Chinook Salmon and Bull Trout summaries"
 author: "Joseph Feldhaus (ODFW) & Ryan Kinzer (NPT)"
 date: "`r format(Sys.time(), '%B %d, %Y')`"
-output: html_document
+output: 
+ html_document:
+   df_print: paged
+   toc: yes
+   toc_depth: 3
+   toc_float: yes
 editor_options: 
   chunk_output_type: console
 ---
@@ -25,7 +30,7 @@ knitr::opts_chunk$set(
 panderOptions('round',2)
 ```
 
-### Noteable Highlights/Data issues  
+## Noteable Highlights/Data issues  
 
 The purpose of this section is to provide a quick review of important events that occured during the 2019 trapping season.
 
@@ -35,8 +40,8 @@ The purpose of this section is to provide a quick review of important events tha
 
 ```{r load_data, message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE}
 # Un-comment out the source code to update the data
-source("./R/02_load_ImnahaRiver_chinook_bull_data.R")
-source("./R/03_process_Imnaha_data.R")
+#source("./R/02_load_ImnahaRiver_chinook_bull_data.R")
+#source("./R/03_process_Imnaha_data.R")
 df<-readRDS("./data/PITcleanr_2019_chs_bull.rds")%>%
   filter(Group=="ImnahaRiver")
 detect_hist<-readRDS("./data/2019_detect_hist.rds")
@@ -46,7 +51,8 @@ load("./data/config_data_20190531.rda")
 
 ```
 
-### Unique PIT-tag observations within the Imnaha Basin by species
+##PIT summaries below the weir site
+### Unique PIT-tag observations by species
 ```{r }
 df %>%
   group_by(Mark.Species, Origin) %>%
@@ -95,7 +101,8 @@ df %>%
        y = "Count")
 ```
 
-### PIT tag detection efficiency at the node level  
+##PIT tag detection efficiency calculations
+### Efficiency at the node level  
 
 Detection efficiencies at the node level (i.e., upstream and downstream antenna grous) and conversion rates for Bull Trout and Chinook Salmon detected at IR1-IR5, IML, and IMNAHW.  Detections in the trap house from the measuring board PIT reader will be labeled "IMNAHWB0".
 
@@ -130,7 +137,7 @@ tmp_df %>%
 
 ```
 
-###PIT tag detection efficiency at the site level  
+### Efficiency at the site level  
 
 Detection efficiencies and converson rates at the site level.  See the Node level estimates above for an efficiency estimate at IR5B0.
 ```{r echo=FALSE}
@@ -165,7 +172,7 @@ tmp_df %>%
 
 ```
 
-
+##Summaries focusd on the Weir   
 ### Unique PIT-tag observations at the Imnaha Weir by trap status (based on observation date at weir sites (IR4, IML, IMNAHW, IR5)
 ```{r }
 detect_hist %>%
@@ -345,10 +352,10 @@ TagStatusAtWeir %>%
   pander()
 ```
 
-### Source Data
+## Source Data
 The complete PIT-tag histories for Chinook Salmon and Bull trout detected during 2019 in the Imnaha River Basin were downloaded as two seperate files located on the [PTAGIS ftp server](ftp://ftp.ptagis.org/MicroStrategyExport/). The files are the result of running "Complete Tag History" queries that were parameterized on the [PTAGIS website](https://www.ptagis.org/) and set-up to run and save automatically at 6:00 a.m. and 12:00 p.m. each day.  The first file contains Chinook Salmon PIT-tag detections and is stored at the file path "*feldhauj/2019_Imnaha_CompleteTagHistory.csv*" within the ftp server.  The second file contains Bull trout detections and is stored within the "*rkinzer/Imnaha_Bull_Complete_Tag_History.csv*" filepath.  We are then using an R-script to download the files from the PTAGIS ftp server and combine them into a single file.  Once the file is combined all Chinook Salmon and Bull trout tag detections are processed using the R package [PITcleanR](https://github.com/kevinsee/PITcleanR). The final dataset provides a simplified tag history with the first and last detection dates at each PIT-tag detection node (i.e., a single spanning array or antenna) and information regarding upstream and downstream movements and a more general migration direction.   
 
-#####*Creating the PTAGIS Chinook Complete Tag History report:*  
+###*Creating the PTAGIS Chinook Complete Tag History report:*  
 
 * *Tag list #1:* All adult Chinook salmon detected at Lower Granite Dam.    
 * *Event Date:* Between 5/1/2019 and 10/1/2019
@@ -356,7 +363,7 @@ The complete PIT-tag histories for Chinook Salmon and Bull trout detected during
 * *Mark Species:* Chinook
 * *Event Type:* Observation, Recapture, Recovery
 
-#####*Creating the PTAGIS Bull Trout Complete Tag History report:*  
+###*Creating the PTAGIS Bull Trout Complete Tag History report:*  
 
 * *PTAGIS criteria:* All PIT-tagged Bull trout detected in the Imnaha River Basin.   
 * *Event Date:* Between 1/1/2019 and 12/31/2019. For this report, limited to dates after 31 March.  
@@ -365,7 +372,7 @@ The complete PIT-tag histories for Chinook Salmon and Bull trout detected during
 * *Event Type:* Observation, Recapture, Recovery 
 
 
-#####*Output Files:*  
+###*Output Files:*  
 
 Some very brief meta data descriptions for two output files processed with R script.  For more details on these files, contact Joseph Feldhaus (Joseph.Feldhaus@state.or.us) or Ryan Kinzer (ryank@nezperce.org).  
 
