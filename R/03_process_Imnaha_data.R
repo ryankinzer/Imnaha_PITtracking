@@ -12,6 +12,7 @@
 # load packages
 library(tidyverse)
 library(lubridate)
+library(PITcleanr)
 library(xlsx)
 
 # Set Return Year ----
@@ -23,14 +24,15 @@ PITcleanr_chs_bull<-readRDS(paste0("./data/PITcleanr_",yr,"_chs_bull.rds"))#I pr
 
 # filter for Imanaha River only
 PITcleanr_chs_bull <- PITcleanr_chs_bull %>%
-  filter(Group == 'ImnahaRiver')#the configuration file from the 02_script contains node_order where "Group" is defined
+  filter(Group == 'ImnahaRiver',
+         firstObsDateTime>=ymd_hm(paste0(yr,"/04/01 00:00")))#the configuration file from the 02_script contains node_order where "Group" is defined
 
 
 # Trap Install Date ----
-trap_install <- FALSE # TRUE OR FALSE
+trap_install <- TRUE # TRUE OR FALSE
 
 #if(trap_install){
-  install_date <- ymd_hm(paste0(yr,"/06/01 15:00")) # we could add time and second if we wanted
+  install_date <- ymd_hm(paste0(yr,"/06/21 15:00")) # we could add time and second if we wanted
 #}
 
 #Write xlsx file and auto fit the column widths
@@ -71,13 +73,17 @@ detect_hist_simple <- PITcleanr_chs_bull %>%
   group_by(TagID, SiteID) %>%
   slice(which.min(firstObsDateTime)) %>%
   spread(SiteID, firstObsDateTime, drop = FALSE) %>%
-  left_join(select(PITcleanr_chs_bull, TagID, Mark.Species, Origin, Release.Date), by = 'TagID') %>%
+  left_join(PITcleanr_chs_bull %>%
+              select(TagID, Mark.Species, Origin, Release.Site.Code, Release.Date) %>%
+              distinct(),
+            by = 'TagID') %>%
   left_join(PITcleanr_chs_bull %>%
               mutate(UserProcStatus = AutoProcStatus) %>%
               rename(ObsDate = firstObsDateTime, lastObsDate = lastObsDateTime) %>%
-              estimateSpawnLoc(), by = 'TagID') %>%
+              estimateSpawnLoc(),
+            by = 'TagID') %>%
   left_join(MaxTimes,by='TagID') %>%
-  select(Mark.Species, Origin, Release.Date, everything())%>%
+  select(Mark.Species, Origin, Release.Site.Code, Release.Date, everything())%>%
   arrange(Mark.Species,Origin,TagID)
 
 write.xlsx2(as.data.frame(detect_hist_simple),paste0("./data/",yr,"_detect_hist_simple.xlsx"),row.names=FALSE) 
@@ -100,7 +106,7 @@ detect_hist <- detect_hist_simple%>%
                                    if_else(!is.na(IML), IML, # use IML,
                                            if_else(!is.na(IMNAHW), IMNAHW, IR5))), # if IMNAHW has a date use IMNAHW otherwise use IR5
          Arrival_Month = month(WeirArrivalDate, label = TRUE, abbr = FALSE),
-         TagStatus = ifelse(grepl("(IR4|IML|IMNAHW|IR5)",TagPath) & WeirArrivalDate <= install_date, "Passed: <11 June",
+         TagStatus = ifelse(grepl("(IR4|IML|IMNAHW|IR5)",TagPath) & WeirArrivalDate <= install_date, paste0("Passed: <",format(install_date, "%d-%B")),
                             ifelse(grepl("IR5", TagPath) & NewTag == "True", "NewTag",
                                    ifelse(grepl("IR5", TagPath) & NewTag == "False", "Passed",
                                           ifelse(grepl("IMNAHW", TagPath), "Trapped",

@@ -70,7 +70,7 @@ chs_bull_obs_raw <- bind_rows(chs_obs_import %>%
 juv_tags <- chs_bull_obs_raw %>%
   filter(Mark.Species == 'Chinook') %>%
   filter(Event.Site.Code.Value == 'GRA') %>%
-  filter(Release.Site.Code != 'LGRLDR') %>%  
+  filter(!Release.Site.Code %in% c('LGRLDR', 'BONAFF')) %>%  
   filter(year(Release.Date) == yr) %>%
   arrange(Release.Date) %>%
   group_by(Tag.Code) %>%
@@ -176,13 +176,13 @@ aws.s3::s3write_using(PITcleanr_chs_bull, FUN = write.csv,
                       bucket = "nptfisheries-pittracking",
                       object = paste0("PITcleanr_",yr, "_chs_bull"))
 
-aws.s3::s3write_using(bull_obs_import, FUN = write.csv,
-                      bucket = "nptfisheries-pittracking",
-                      object = paste0("PITtrackR_Bull_Complete_Tag_History_",yr))
+# aws.s3::s3write_using(bull_obs_import, FUN = write.csv,
+#                       bucket = "nptfisheries-pittracking",
+#                       object = paste0("PITtrackR_Bull_Complete_Tag_History_",yr))
 
-aws.s3::s3write_using(chs_obs_import, FUN = write.csv,
-                      bucket = "nptfisheries-pittracking",
-                      object = paste0("PITtrackR_Chinook_Complete_Tag_History_",yr))
+# aws.s3::s3write_using(chs_obs_import, FUN = write.csv,
+#                       bucket = "nptfisheries-pittracking",
+#                       object = paste0("PITtrackR_Chinook_Complete_Tag_History_",yr))
 
 # Clean the R-environment
 rm(list = ls())
