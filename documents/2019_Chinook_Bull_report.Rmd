@@ -36,20 +36,22 @@ The purpose of this section is to provide a quick review of important events tha
 
 ```{r load_data, eval = FALSE}
 # Un-comment out the source code to update the data
-#source("./R/02_load_chinook_bull_data.R")
-#source("./R/03_process_Imnaha_data.R")
+#source("../R/02_load_chinook_bull_data.R")
+#source("../R/03_process_Imnaha_data.R")
 
-# df<-readRDS("./data/PITcleanr_2019_chs_bull.rds")%>%
+# df<-readRDS("../data/PITcleanr_2019_chs_bull.rds")%>%
 #   filter(Group=="ImnahaRiver",
 #          firstObsDateTime>=ymd_hm(paste0(yr,"/04/01 00:00")))
 # 
-# detect_hist<-readRDS("./data/2019_detect_hist.rds")
+# detect_hist<-readRDS("../data/2019_detect_hist.rds")
 ```
 
 
 ```{r, eval = TRUE}
 # Section is for loading data when knitting from web application or
 # pulling data from Amazon bucket
+source("../R/aws_keys.R")
+setKeys()
 
 yr <- year(Sys.Date())
 
@@ -66,9 +68,9 @@ detect_hist <- aws.s3::s3read_using(FUN = read_csv,
 
 
 ```{r}
-#load("./data/config_data_20180605.rda")
-#load("./data/config_data_20180629.rda")
-load("./data/config_data_20190531.rda")
+#load("../data/config_data_20180605.rda")
+#load("../data/config_data_20180629.rda")
+load("../data/config_data_20190531.rda")
 ```
 
 ## PIT summaries below the weir site
