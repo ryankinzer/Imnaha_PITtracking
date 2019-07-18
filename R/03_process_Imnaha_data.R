@@ -100,33 +100,35 @@ detect_hist <- detect_hist_simple%>%
          IR4_IMNAHW = difftime(IMNAHW, IR4, units = 'days'),
          IR4_IR5 = difftime(IR5, IR4, units = 'days')) %>%
   mutate(NewTag = case_when(
-                    Mark.Species == "Bull Trout" & trap_install & Release.Date > install_date ~ "TRUE",
-                    TRUE ~ "FALSE"),
-         WeirArrivalDate = if_else(!is.na(IR4), IR4, #if IR4 has a date, use IR4,
-                                   if_else(!is.na(IML), IML, # use IML,
-                                           if_else(!is.na(IMNAHW), IMNAHW, IR5))), # if IMNAHW has a date use IMNAHW otherwise use IR5
-         Arrival_Month = month(WeirArrivalDate, label = TRUE, abbr = FALSE),
-         TagStatus = ifelse(grepl("(IR4|IML|IMNAHW|IR5)",TagPath) & WeirArrivalDate <= install_date, paste0("Passed: <",format(install_date, "%d-%B")),
-                            ifelse(grepl("IR5", TagPath) & NewTag == "True", "NewTag",
-                                   ifelse(grepl("IR5", TagPath) & NewTag == "False", "Passed",
-                                          ifelse(grepl("IMNAHW", TagPath), "Trapped",
-                                                 ifelse(grepl("IML", TagPath), "Attempted Ladder",
-                                                        ifelse(grepl("IR4", TagPath), "At Weir", paste0("Last obs: ", AssignSpawnSite))))))),
-         TrapStatus = ifelse(is.na(WeirArrivalDate), "No obs at weir sites",
-                             ifelse(WeirArrivalDate <= install_date, "Panels Open", "Panels Closed")),
-         PassageRoute = ifelse(!grepl("Passed", TagStatus), NA,
+    Mark.Species == "Bull Trout" & trap_install & Release.Date > install_date ~ "TRUE", TRUE ~ "FALSE"),
+    WeirArrivalDate = if_else(!is.na(IR4), IR4, #if IR4 has a date, use IR4,
+                              if_else(!is.na(IML), IML, # use IML,
+                                      if_else(!is.na(IMNAHW), IMNAHW, IR5))), # if IMNAHW has a date use IMNAHW otherwise use IR5
+    Arrival_Month = month(WeirArrivalDate, label = TRUE, abbr = FALSE))
+
+###I separated into two parts to help with some error checking.  The second half is more complicated
+
+detect_hist2<-detect_hist%>%
+  mutate(TagStatus = ifelse(grepl("(IR4|IML|IMNAHW|IR5)",TagPath) & WeirArrivalDate <= install_date, paste0("Passed: <",format(install_date, "%d-%B")),
+                            ifelse(grepl("IR5", TagPath),"Passed",
+                                   ifelse(grepl("IMNAHW", TagPath), "Trapped",
+                                          ifelse(grepl("IML", TagPath), "Attempted Ladder",
+                                                 ifelse(grepl("IR4", TagPath), "At Weir", paste0("Last obs: ", AssignSpawnSite)))))))%>%
+  mutate(TrapStatus = ifelse(is.na(WeirArrivalDate), "No obs at weir sites",
+                             ifelse(WeirArrivalDate <= install_date, "Panels Open", "Panels Closed")))%>%
+  mutate(PassageRoute = ifelse(!grepl("Passed", TagStatus), NA,
                                ifelse(grepl("IMNAHW", TagPath), "Handled",
                                       ifelse(grepl("IML", TagPath), "IML obs = T", "IML obs = F"))))
 
-detect_hist$TagStatus[detect_hist$IR4_max>detect_hist$IMNAHW&detect_hist$IMNAHW>install_date]<-"Trapped: Obs Below Weir"#tags without a detection at IR5 that fall below the weir
-detect_hist$TagStatus[detect_hist$TagStatus=="Trapped: Obs Below Weir"&detect_hist$IR5>detect_hist$IR4_max]<-"Passed"#fell below weir, but made it back to IR5
+detect_hist2$TagStatus[detect_hist2$IR4_max>detect_hist2$IMNAHW&detect_hist2$IMNAHW>install_date]<-"Trapped: Obs Below Weir"#tags without a detection at IR5 that fall below the weir
+detect_hist2$TagStatus[detect_hist2$TagStatus=="Trapped: Obs Below Weir"&detect_hist2$IR5>detect_hist2$IR4_max]<-"Passed"#fell below weir, but made it back to IR5
 
 
-detect_hist$PassageRoute[detect_hist$IMNAHW>install_date]<-"Handled"#tag paths that end at the trap
+detect_hist2$PassageRoute[detect_hist2$IMNAHW>install_date]<-"Handled"#tag paths that end at the trap
 #detect_hist$PassageRoute[detect_hist$TagID=="3D9.1C2D90A52D"]<-"Handled 6/5/18"#tag paths that end at the trap
 
 #Rearange variable names
-detect_hist_out<-detect_hist%>%select(TagID,Mark.Species,Origin,NewTag,TagStatus,TrapStatus,PassageRoute,Release.Date,WeirArrivalDate,everything())
+detect_hist_out<-detect_hist2%>%select(TagID,Mark.Species,Origin,NewTag,TagStatus,TrapStatus,PassageRoute,Release.Date,WeirArrivalDate,everything())
 
 saveRDS(detect_hist_out, file = paste0("./data/",yr,"_detect_hist.rds"))
 #save(detect_hist_out, file = paste0("./data/",yr,"_detect_hist.rda")) #Save as rda
@@ -138,7 +140,7 @@ setColumnWidth(sheets2[[1]],colIndex=1:ncol(detect_hist_out),colWidth=18)
 saveWorkbook(wb2,paste0("./data/",yr, "_detect_hist.xlsx"))
 
 # Compile pdf document.
-knitr::knit("2019_chinook_bull_report.Rmd")
+#knitr::knit("2019_chinook_bull_report.Rmd")
 
 ##Amazon and Shiny####
 source('./R/aws_keys.R')

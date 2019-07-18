@@ -36,18 +36,19 @@ The purpose of this section is to provide a quick review of important events tha
 
 ```{r load_data, eval = FALSE}
 # Un-comment out the source code to update the data
-#source("../R/02_load_chinook_bull_data.R")
-#source("../R/03_process_Imnaha_data.R")
-
-# df<-readRDS("../data/PITcleanr_2019_chs_bull.rds")%>%
-#   filter(Group=="ImnahaRiver",
-#          firstObsDateTime>=ymd_hm(paste0(yr,"/04/01 00:00")))
+#source("./R/02_load_chinook_bull_data.R")
+#source("./R/03_process_Imnaha_data.R")
+yr <- year(Sys.Date())
+ df<-readRDS("./data/PITcleanr_2019_chs_bull.rds")%>%
+   filter(Group=="ImnahaRiver",
+         firstObsDateTime>=ymd_hm(paste0(yr,"/04/01 00:00")))
 # 
-# detect_hist<-readRDS("../data/2019_detect_hist.rds")
+detect_hist<-readRDS("./data/2019_detect_hist.rds")
+#df<-readRDS("./data/PITcleanr_2019_chs_bull.rds")
 ```
 
 
-```{r, eval = TRUE}
+```{r}
 # Section is for loading data when knitting from web application or
 # pulling data from Amazon bucket
 source("../R/aws_keys.R")
@@ -136,6 +137,8 @@ tmp_df <- df %>%
             ) %>%
   identity()
 
+#names(tmp_df)
+
 nodes <- c('IR1', 'IR2', 'IR3B0', 'IR3A0', 'IR4B0', 'IR4A0',
            'IMLB0', 'IMLA0', 'IMNAHWB0','IMNAHWA0','IR5B0', 'IR5A0')
 
@@ -176,7 +179,7 @@ tmp_df %>%
   pander()
 ```
 
-## Summaries focusd on the Weir   
+## Summaries focused on the Weir   
 ### Unique PIT-tag observations at the Imnaha Weir by trap status (based on observation date at weir sites (IR4, IML, IMNAHW, IR5)
 
 ```{r }
@@ -204,7 +207,7 @@ This summary is limited to previously tagged fish (i.e., not tagged at IMNAHW in
  
 ```{r message=FALSE, warning=FALSE}
 detect_hist %>%
-  filter(grepl('Passed', TagStatus), NewTag == 'False') %>%
+  filter(grepl('Passed', TagStatus), NewTag == 'FALSE') %>%
   #filter(grepl('Passed', TagStatus)) %>%
   #group_by(Mark.Species, TrapStatus, PassageRoute) %>% 
   group_by(Mark.Species, PassageRoute, TrapStatus) %>%
@@ -222,7 +225,7 @@ pander()
 * *Last obs: IR1/IR2/IR3*: Observed at IR1, IR2, or IR3, respectively.  
 * *NewTag*: Bull Trout tagged at IMNAHW in 2019.  
 * *Passed*: Detected at IR5.  
-* *Trapped*: Handled at IMNAHW, but no subsequent detection IR5.  
+* *Trapped*: Handled at IMNAHW, but no subsequent detection at IR5.  
 * *Trapped: Obs Below Weir*: Handled at IMNAHW & detected at IR4>IMNAHW  
  
 
@@ -247,7 +250,7 @@ ggplot(subset(AtWeir,LastObsDate>"2019/05/31"),aes(x=as.Date(LastObs,"%m/%d/%Y",
   theme(legend.position = 'bottom')+ 
   guides(fill=guide_legend(nrow=2,byrow=TRUE))+
   theme(panel.grid.major=element_blank())+
-  ggtitle("Tag status: last detection at IR4/IR5/IML/IMNAHW on or after 1 June")+
+  ggtitle("Tag status: last detection at IR4/IR5/IML/IMNAHW on or after weir installation")+
   labs(x = "Last Observation Date",
        y = "Count")
 ```
@@ -356,6 +359,29 @@ TagStatusAtWeir %>%
   select(-TagStatus) %>%
   pander()
 
+```
+
+### Tag Status = "Passed"
+
+List of PIT tags detected at IR5 assigned a tag status of passed.  In other words, tags were detected at IR5.
+```{r}
+TagStatusPassed<-detect_hist %>%
+  filter(TagStatus=="Passed") %>%
+  select(TagID, Species = Mark.Species,Release.Site.Code,Origin,TagStatus,IR5,IR5_max) %>%
+  arrange(Species,IR5_max)
+
+TagStatusPassed %>%
+  group_by(Species,Origin) %>%
+  tally() %>%
+  pander()
+
+TagStatusPassed %>%
+  rename(IR5_min =IR5,
+         Release.Site = Release.Site.Code) %>%
+  mutate(IR5_min = as.Date(IR5_min,format="%m/%d"),
+         IR5_max=as.Date(IR5_max,format="%m/%d")) %>%
+  select(-TagStatus) %>%
+  pander()
 ```
 
 ### Source Data
