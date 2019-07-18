@@ -132,7 +132,7 @@ valid_obs <- assignNodes(valid_tag_df = chs_bull_tags,
 proc_obs <- writeCapHistOutput(valid_obs,
                                valid_paths,
                                node_order,
-                               save_file = TRUE)
+                               save_file = FALSE)
 
 
 # join covariate data with processed capture histories & remove columns
