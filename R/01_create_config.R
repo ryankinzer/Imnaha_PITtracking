@@ -45,3 +45,4 @@ node_order = createNodeOrder(valid_paths,
 filename <- paste0("./data/config_data_",gsub("-","",run_date),".rda")
 
 save(my_config, site_df, parent_child, valid_paths, node_order, file = filename)
+

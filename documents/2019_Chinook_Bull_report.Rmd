@@ -31,14 +31,16 @@ panderOptions('round',2)
 The purpose of this section is to provide a quick review of important events that occured during the 2019 trapping season.
 
   * Imnaha Weir installation date: **June 21, 2019**.  
-  * PIT tag detections for Bull Trout and Chinook Salmon were limited to detection events that occured on or after 4/1/2019.   
+  * PIT tag detections for Bull Trout and Chinook Salmon were limited to detection events that occured on or after 4/1/2019.
+  * NPT stopped harvest on June 29th at 9:00 PM in the Imnaha River.
+  * A break in occurred into the holding ponds on 7/7 and there were some amount of unknown fish (bull trout/Chinook) removed.  You might have to confirm items with Andrew/Diane.  There was likely a bull trout mortality (as one was observed in the trap prior to the break-in by staff and wasn't recovered).
 
 
 ```{r load_data, eval = FALSE}
 # Un-comment out the source code to update the data
 #source("./R/02_load_chinook_bull_data.R")
 #source("./R/03_process_Imnaha_data.R")
-yr <- year(Sys.Date())
+yr <- 2019 #year(Sys.Date())
  df<-readRDS("./data/PITcleanr_2019_chs_bull.rds")%>%
    filter(Group=="ImnahaRiver",
          firstObsDateTime>=ymd_hm(paste0(yr,"/04/01 00:00")))
@@ -51,10 +53,10 @@ detect_hist<-readRDS("./data/2019_detect_hist.rds")
 ```{r}
 # Section is for loading data when knitting from web application or
 # pulling data from Amazon bucket
-source("../R/aws_keys.R")
-setKeys()
+#source("../R/aws_keys.R")
+#setKeys()
 
-yr <- year(Sys.Date())
+yr <- 2019 #year(Sys.Date())
 
 df <- aws.s3::s3read_using(FUN = read_csv,
                          bucket = "nptfisheries-pittracking",

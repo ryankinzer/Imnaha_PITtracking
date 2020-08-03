@@ -29,6 +29,13 @@ download.file(chs_url, paste0("./data/", basename(chs_url)))
 chs_obs_import <- read.csv(paste0("./data/", basename(chs_url)), skip = 0, colClasses="character",
                            fileEncoding = "UTF-16", sep = ",", header = TRUE) #7466 , quote=""
 
+# Load Data from DART
+yr <- 2019
+spp <- 1
+dart_file <- paste0('http://www.cbr.washington.edu/dart/cs/data/nezperce/nptspawn_GRA_',yr,'_',spp,'.csv')
+chs_obs_import <- read_csv(dart_file)
+
+
 
 bull_url <- 'ftp://ftp.ptagis.org/MicroStrategyExport/rkinzer/PITtrackR_Bulltrout_Complete_Tag_History.csv'#Bull trout file
 download.file(bull_url, paste0("./data/", basename(bull_url)))
